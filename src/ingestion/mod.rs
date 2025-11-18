@@ -1,19 +1,31 @@
+pub mod batch_store;
+pub mod error;
+pub mod runner;
+pub mod status;
+
 use crate::bases::{Base, BaseManager, LibraryEntry};
 use crate::orchestration::{log_event, EventType};
 use anyhow::{Context, Result};
 use chrono::Utc;
+use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 use walkdir;
-use serde_json::json;
 
-/// Result of a Path A ingestion run.
-#[derive(Debug, Clone)]
+pub use batch_store::{IngestionBatchState, IngestionBatchStatus, IngestionBatchStore};
+pub use error::{IngestionIssue, IngestionIssueReason};
+pub use runner::{IngestionOutcome, IngestionRunner};
+pub use status::format_batch_status;
+
+/// Result of a Path A ingestion run or an incremental runner chunk.
+#[derive(Debug, Clone, Default)]
 pub struct IngestionSummary {
     pub total_files: usize,
     pub ingested: usize,
     pub skipped: usize,
+    pub failed: usize,
+    pub issues: Vec<IngestionIssue>,
 }
 
 /// Ingests PDFs or export files from a directory into the Base.
@@ -28,6 +40,8 @@ pub fn ingest_local_pdfs<P: AsRef<Path>>(
         total_files: 0,
         ingested: 0,
         skipped: 0,
+        failed: 0,
+        issues: Vec::new(),
     };
 
     if !folder.exists() {
@@ -96,26 +110,25 @@ pub fn ingest_local_pdfs<P: AsRef<Path>>(
         json!({
             "folder": folder,
             "ingested": summary.ingested,
-            "skipped": summary.skipped
+            "skipped": summary.skipped,
+            "failed": summary.failed
         }),
     )?;
 
     Ok(summary)
 }
 
-fn is_supported_file(path: &Path) -> bool {
+pub(crate) fn is_supported_file(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|ext| ext.to_str()).map(|s| s.to_lowercase()),
         Some(ref ext) if ["pdf", "txt", "md"].contains(&ext.as_str())
     )
 }
 
-fn copy_to_user_layer(base: &Base, path: &Path) -> Result<PathBuf> {
+pub(crate) fn copy_to_user_layer(base: &Base, path: &Path) -> Result<PathBuf> {
     let storage_dir = base.user_layer_path.join("imported");
     fs::create_dir_all(&storage_dir)?;
-    let file_name = path
-        .file_name()
-        .context("File missing name during copy")?;
+    let file_name = path.file_name().context("File missing name during copy")?;
     let target = storage_dir.join(file_name);
     fs::copy(path, &target)?;
     Ok(target)

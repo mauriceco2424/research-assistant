@@ -19,6 +19,9 @@ pub struct AppConfig {
     /// Per-install acquisition options (network permissions, batch limits, etc.).
     #[serde(default)]
     pub acquisition: AcquisitionSettings,
+    /// Ingestion defaults (checkpoint cadence, remote lookup toggles).
+    #[serde(default)]
+    pub ingestion: IngestionSettings,
 }
 
 /// Acquisition-related preferences tied to the local install.
@@ -42,11 +45,39 @@ impl Default for AcquisitionSettings {
 }
 
 const fn default_remote_allowed() -> bool {
-    true
+    false
 }
 
 const fn default_batch_limit() -> u32 {
     100
+}
+
+/// Ingestion-related defaults that affect chat commands and batch runners.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IngestionSettings {
+    /// Number of files processed between checkpoints to support resume.
+    #[serde(default = "default_checkpoint_interval_files")]
+    pub checkpoint_interval_files: u32,
+    /// Whether remote metadata lookups are allowed during ingestion/enrichment.
+    #[serde(default = "default_remote_metadata_allowed")]
+    pub remote_metadata_allowed: bool,
+}
+
+impl Default for IngestionSettings {
+    fn default() -> Self {
+        Self {
+            checkpoint_interval_files: default_checkpoint_interval_files(),
+            remote_metadata_allowed: default_remote_metadata_allowed(),
+        }
+    }
+}
+
+const fn default_checkpoint_interval_files() -> u32 {
+    25
+}
+
+const fn default_remote_metadata_allowed() -> bool {
+    false
 }
 
 /// Standard relative path to the config file (resolved per OS at runtime).
@@ -56,7 +87,7 @@ use anyhow::{Context, Result};
 use directories::BaseDirs;
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Returns the root directory where ResearchBase stores data.
 ///

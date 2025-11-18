@@ -3,11 +3,10 @@ use crate::acquisition::{
     undo_last_batch, CandidatePaper, InterviewAnswers,
 };
 use crate::bases::{Base, BaseManager};
-use crate::ingestion::ingest_local_pdfs;
+use crate::ingestion::{format_batch_status, ingest_local_pdfs, IngestionRunner};
 use crate::orchestration::{log_event, EventType, OrchestrationLog};
 use crate::reports::generate_and_log_reports;
 use anyhow::{Context, Result};
-use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
@@ -56,11 +55,89 @@ impl ChatSession {
         ))
     }
 
+    pub fn ingest_start<P: AsRef<Path>>(&mut self, folder: P) -> Result<String> {
+        let base = self.active_base()?;
+        let runner = IngestionRunner::new(&self.manager, base.clone());
+        let outcome = runner.start_batch(folder.as_ref())?;
+        Ok(outcome.describe_for_chat())
+    }
+
+    pub fn ingest_status(&mut self) -> Result<String> {
+        let base = self.active_base()?;
+        let runner = IngestionRunner::new(&self.manager, base);
+        if let Some(state) = runner.latest_state()? {
+            Ok(format_batch_status(&state))
+        } else {
+            Ok("No ingestion batches recorded for this Base.".into())
+        }
+    }
+
+    pub fn ingest_pause(&mut self) -> Result<String> {
+        let base = self.active_base()?;
+        let runner = IngestionRunner::new(&self.manager, base);
+        if runner.pause_latest()? {
+            Ok("Pause requested for the active ingestion batch.".into())
+        } else {
+            anyhow::bail!("No running ingestion batch to pause.");
+        }
+    }
+
+    pub fn ingest_resume(&mut self) -> Result<String> {
+        let base = self.active_base()?;
+        let runner = IngestionRunner::new(&self.manager, base);
+        let outcome = runner.resume_latest()?;
+        Ok(outcome.describe_for_chat())
+    }
+
+    /// Placeholder metadata refresh command wiring that keeps chat-first UX alive.
+    pub fn metadata_refresh(&mut self, paper_ids: Option<Vec<Uuid>>) -> Result<String> {
+        let scope = match paper_ids {
+            Some(ref ids) if !ids.is_empty() => format!("{} papers", ids.len()),
+            _ => "entire Base".to_string(),
+        };
+        Ok(format!(
+            "Metadata refresh stub queued for {}. Enrichment pipeline will replace this once implemented.",
+            scope
+        ))
+    }
+
+    /// Placeholder consent-driven figure extraction command.
+    pub fn figures_extract(&mut self, batch_hint: Option<Uuid>) -> Result<String> {
+        let scope = batch_hint
+            .map(|id| format!("batch {}", id))
+            .unwrap_or_else(|| "latest ingestion batch".into());
+        Ok(format!(
+            "Figure extraction stub acknowledged for {}. Consent + storage workflow pending implementation.",
+            scope
+        ))
+    }
+
+    /// Returns a minimal orchestration history summary (ingestion/acquisition).
+    pub fn history_show(&self, range_hint: Option<&str>) -> Result<Vec<String>> {
+        let base = self.active_base()?;
+        let log = OrchestrationLog::for_base(&base);
+        let mut entries = Vec::new();
+        for batch in log.load_batches()? {
+            entries.push(format!(
+                "{} | Acquisition batch {} (approved '{}')",
+                batch.approved_at, batch.batch_id, batch.approved_text
+            ));
+        }
+        if entries.is_empty() {
+            entries.push(format!(
+                "No orchestration history yet{}.",
+                range_hint
+                    .map(|hint| format!(" for range '{}'", hint))
+                    .unwrap_or_default()
+            ));
+        }
+        Ok(entries)
+    }
+
     pub fn path_b_interview(&mut self, answers: InterviewAnswers) -> Result<Vec<CandidatePaper>> {
         let base = self.active_base()?;
         let candidates = generate_candidates_from_interview(&answers);
-        self.pending_candidates
-            .insert(base.id, candidates.clone());
+        self.pending_candidates.insert(base.id, candidates.clone());
         log_event(
             &self.manager,
             &base,
@@ -93,9 +170,7 @@ impl ChatSession {
         }
         let batch = run_acquisition_batch(&self.manager, &base, &selected, approval_text)?;
         let entries = self.manager.load_library_entries(&base)?;
-        let (with_pdf, needs_pdf): (Vec<_>, Vec<_>) = selected
-            .iter()
-            .partition(|c| c.open_access);
+        let (with_pdf, needs_pdf): (Vec<_>, Vec<_>) = selected.iter().partition(|c| c.open_access);
         generate_and_log_reports(&self.manager, &base, &entries)?;
         Ok(format!(
             "Batch {} added {} papers ({} need manual PDFs).\nWith PDFs: {}\nNeeds PDFs: {}",
@@ -128,7 +203,9 @@ impl ChatSession {
         generate_and_log_reports(&self.manager, &base, &entries)?;
         Ok(format!(
             "Discovery batch {} added {} candidates for topic '{}'.",
-            batch.batch_id, candidates.len(), topic
+            batch.batch_id,
+            candidates.len(),
+            topic
         ))
     }
 
@@ -139,7 +216,9 @@ impl ChatSession {
         for batch in log.load_batches()? {
             summaries.push(format!(
                 "{} - {} selections (approved '{}')",
-                batch.approved_at, batch.records.len(), batch.approved_text
+                batch.approved_at,
+                batch.records.len(),
+                batch.approved_text
             ));
         }
         Ok(summaries)

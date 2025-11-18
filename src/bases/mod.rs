@@ -1,7 +1,8 @@
 mod config;
 
 pub use config::{
-    ensure_workspace_structure, workspace_root, AcquisitionSettings, AppConfig, WorkspacePaths,
+    ensure_workspace_structure, workspace_root, AcquisitionSettings, AppConfig, IngestionSettings,
+    WorkspacePaths,
 };
 
 use crate::orchestration::{log_event, EventType, OrchestrationEvent};
@@ -9,10 +10,9 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Represents a Paper Base with its metadata and filesystem locations.
@@ -66,7 +66,7 @@ impl BaseManager {
 
         // If no last active base, try to pick the first existing base.
         if config.last_active_base_id.is_none() {
-            if let Some(first_base) = Self::discover_bases(&paths)? .first() {
+            if let Some(first_base) = Self::discover_bases(&paths)?.first() {
                 config.last_active_base_id = Some(first_base.id.to_string());
                 config::save(&config)?;
             }
@@ -102,10 +102,7 @@ impl BaseManager {
     }
 
     pub fn get_base(&self, base_id: &Uuid) -> Result<Option<Base>> {
-        Ok(self
-            .list_bases()?
-            .into_iter()
-            .find(|b| &b.id == base_id))
+        Ok(self.list_bases()?.into_iter().find(|b| &b.id == base_id))
     }
 
     pub fn create_base(&mut self, name: &str) -> Result<Base> {
@@ -116,7 +113,7 @@ impl BaseManager {
         let ai_path = self.paths.base_ai_layer(&id.to_string());
         fs::create_dir_all(&user_path)?;
         fs::create_dir_all(&ai_path)?;
-        let mut base = Base {
+        let base = Base {
             id,
             name: name.to_string(),
             slug,
@@ -174,6 +171,10 @@ impl BaseManager {
         base.ai_layer_path.join("library_entries.json")
     }
 
+    fn metadata_store_path(&self, base: &Base) -> PathBuf {
+        base.ai_layer_path.join("metadata_records.json")
+    }
+
     pub fn load_library_entries(&self, base: &Base) -> Result<Vec<LibraryEntry>> {
         let path = self.base_library_path(base);
         if path.exists() {
@@ -184,17 +185,74 @@ impl BaseManager {
         }
     }
 
-    pub fn save_library_entries(
-        &self,
-        base: &Base,
-        entries: &[LibraryEntry],
-    ) -> Result<()> {
+    pub fn load_metadata_records(&self, base: &Base) -> Result<Vec<MetadataRecord>> {
+        let path = self.metadata_store_path(base);
+        if path.exists() {
+            let records: Vec<MetadataRecord> = serde_json::from_slice(&fs::read(path)?)?;
+            Ok(records)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    pub fn save_library_entries(&self, base: &Base, entries: &[LibraryEntry]) -> Result<()> {
         let path = self.base_library_path(base);
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
         fs::write(path, serde_json::to_vec_pretty(entries)?)?;
         Ok(())
+    }
+
+    pub fn save_metadata_records(&self, base: &Base, records: &[MetadataRecord]) -> Result<()> {
+        let path = self.metadata_store_path(base);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, serde_json::to_vec_pretty(records)?)?;
+        Ok(())
+    }
+
+    pub fn upsert_metadata_record(
+        &self,
+        base: &Base,
+        record: MetadataRecord,
+    ) -> Result<MetadataRecord> {
+        let mut records = self.load_metadata_records(base)?;
+        if let Some(existing) = records
+            .iter_mut()
+            .find(|existing| existing.record_id == record.record_id)
+        {
+            *existing = record.clone();
+        } else if let Some(existing) = records
+            .iter_mut()
+            .find(|existing| existing.identifier == record.identifier)
+        {
+            existing.merge_from(&record);
+        } else {
+            records.push(record.clone());
+        }
+        self.save_metadata_records(base, &records)?;
+        Ok(record)
+    }
+
+    pub fn ensure_metadata_only_record(
+        &self,
+        base: &Base,
+        identifier: &str,
+        title: &str,
+    ) -> Result<MetadataRecord> {
+        let mut records = self.load_metadata_records(base)?;
+        if let Some(existing) = records
+            .iter()
+            .find(|record| record.identifier == identifier)
+        {
+            return Ok(existing.clone());
+        }
+        let record = MetadataRecord::metadata_only(identifier, title.to_string());
+        records.push(record.clone());
+        self.save_metadata_records(base, &records)?;
+        Ok(record)
     }
 
     pub fn remove_entries_by_ids(&self, base: &Base, ids: &[Uuid]) -> Result<Vec<LibraryEntry>> {
@@ -247,7 +305,77 @@ fn slugify(name: &str) -> String {
 /// Utility to generate placeholder text for category summaries.
 pub fn placeholder_excerpt() -> String {
     let mut rng = rand::thread_rng();
-    (0..32)
-        .map(|_| rng.sample(Alphanumeric) as char)
-        .collect()
+    (0..32).map(|_| rng.sample(Alphanumeric) as char).collect()
+}
+
+/// Normalized metadata representation stored in the AI layer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataRecord {
+    pub record_id: Uuid,
+    pub paper_id: Option<Uuid>,
+    pub identifier: String,
+    pub doi: Option<String>,
+    pub title: String,
+    pub authors: Vec<String>,
+    pub venue: Option<String>,
+    pub year: Option<i32>,
+    pub language: Option<String>,
+    pub keywords: Vec<String>,
+    pub references: Vec<String>,
+    pub dedup_status: MetadataDedupStatus,
+    pub provenance: Option<String>,
+    pub missing_pdf: bool,
+    pub missing_figures: bool,
+    pub last_updated: DateTime<Utc>,
+}
+
+impl MetadataRecord {
+    pub fn metadata_only(identifier: &str, title: String) -> Self {
+        Self {
+            record_id: Uuid::new_v4(),
+            paper_id: None,
+            identifier: identifier.to_string(),
+            doi: None,
+            title,
+            authors: Vec::new(),
+            venue: None,
+            year: None,
+            language: None,
+            keywords: Vec::new(),
+            references: Vec::new(),
+            dedup_status: MetadataDedupStatus::MetadataOnly,
+            provenance: Some("metadata_only_ingestion".into()),
+            missing_pdf: true,
+            missing_figures: true,
+            last_updated: Utc::now(),
+        }
+    }
+
+    pub fn merge_from(&mut self, source: &MetadataRecord) {
+        self.paper_id = source.paper_id;
+        self.identifier = source.identifier.clone();
+        self.doi = source.doi.clone();
+        self.title = source.title.clone();
+        self.authors = source.authors.clone();
+        self.venue = source.venue.clone();
+        self.year = source.year;
+        self.language = source.language.clone();
+        self.keywords = source.keywords.clone();
+        self.references = source.references.clone();
+        self.dedup_status = source.dedup_status;
+        self.provenance = source.provenance.clone();
+        self.missing_pdf = source.missing_pdf;
+        self.missing_figures = source.missing_figures;
+        self.last_updated = Utc::now();
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataDedupStatus {
+    Unknown,
+    Unique,
+    Duplicate,
+    Merged,
+    MetadataOnly,
 }

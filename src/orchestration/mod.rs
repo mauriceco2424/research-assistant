@@ -1,11 +1,16 @@
+pub mod consent;
+
+pub use consent::{
+    require_remote_operation_consent, ConsentManifest, ConsentOperation, ConsentScope, ConsentStore,
+};
+
 use crate::bases::{Base, BaseManager};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Type of orchestration events that can be logged.
@@ -18,6 +23,14 @@ pub enum EventType {
     PathBInterview,
     AcquisitionApproved,
     AcquisitionUndo,
+    IngestionBatchStarted,
+    IngestionBatchPaused,
+    IngestionBatchResumed,
+    IngestionBatchCompleted,
+    FigureExtractionRequested,
+    FigureExtractionCompleted,
+    FigureExtractionUndo,
+    MetadataRefreshRequested,
     ReportsGenerated,
 }
 
@@ -82,15 +95,18 @@ pub struct AcquisitionRecord {
 pub struct OrchestrationLog {
     events_path: PathBuf,
     batches_path: PathBuf,
+    figure_batches_path: PathBuf,
 }
 
 impl OrchestrationLog {
     pub fn for_base(base: &Base) -> Self {
         let events_path = base.ai_layer_path.join("events.jsonl");
         let batches_path = base.ai_layer_path.join("acquisition_batches.jsonl");
+        let figure_batches_path = base.ai_layer_path.join("figure_batches.jsonl");
         Self {
             events_path,
             batches_path,
+            figure_batches_path,
         }
     }
 
@@ -173,11 +189,67 @@ impl OrchestrationLog {
         }
         Ok(())
     }
+
+    pub fn record_figure_batch(&self, batch: &FigureExtractionBatch) -> Result<()> {
+        if let Some(parent) = self.figure_batches_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.figure_batches_path)?;
+        file.write_all(serde_json::to_string(batch)?.as_bytes())?;
+        file.write_all(b"\n")?;
+        Ok(())
+    }
+
+    pub fn load_figure_batches(&self) -> Result<Vec<FigureExtractionBatch>> {
+        if !self.figure_batches_path.exists() {
+            return Ok(Vec::new());
+        }
+        let data = fs::read_to_string(&self.figure_batches_path)?;
+        let mut batches = Vec::new();
+        for line in data.lines().filter(|l| !l.trim().is_empty()) {
+            let batch: FigureExtractionBatch = serde_json::from_str(line)?;
+            batches.push(batch);
+        }
+        Ok(batches)
+    }
+
+    pub fn undo_last_figure_batch(&self) -> Result<Option<FigureExtractionBatch>> {
+        let mut batches = self.load_figure_batches()?;
+        if let Some(batch) = batches.pop() {
+            self.persist_figure_batches(&batches)?;
+            let event = OrchestrationEvent {
+                event_id: Uuid::new_v4(),
+                base_id: batch.base_id,
+                event_type: EventType::FigureExtractionUndo,
+                timestamp: Utc::now(),
+                details: serde_json::json!({ "batch_id": batch.batch_id }),
+            };
+            self.append_event(&event)?;
+            Ok(Some(batch))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn persist_figure_batches(&self, batches: &[FigureExtractionBatch]) -> Result<()> {
+        if let Some(parent) = self.figure_batches_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut file = fs::File::create(&self.figure_batches_path)?;
+        for batch in batches {
+            file.write_all(serde_json::to_string(batch)?.as_bytes())?;
+            file.write_all(b"\n")?;
+        }
+        Ok(())
+    }
 }
 
 /// Append a simple orchestration event helper.
 pub fn log_event(
-    manager: &BaseManager,
+    _manager: &BaseManager,
     base: &Base,
     event_type: EventType,
     details: serde_json::Value,
@@ -191,4 +263,33 @@ pub fn log_event(
     };
     let log = OrchestrationLog::for_base(base);
     log.append_event(&event)
+}
+
+/// Representation of a figure extraction batch for orchestration logging/undo.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FigureExtractionBatch {
+    pub batch_id: Uuid,
+    pub base_id: Uuid,
+    pub approval_text: String,
+    pub requested_at: DateTime<Utc>,
+    pub approved_at: DateTime<Utc>,
+    pub figure_asset_ids: Vec<Uuid>,
+}
+
+impl FigureExtractionBatch {
+    pub fn new(
+        base_id: Uuid,
+        approval_text: String,
+        figure_asset_ids: Vec<Uuid>,
+        requested_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            batch_id: Uuid::new_v4(),
+            base_id,
+            approval_text,
+            requested_at,
+            approved_at: Utc::now(),
+            figure_asset_ids,
+        }
+    }
 }

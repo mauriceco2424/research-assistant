@@ -37,6 +37,8 @@ After or independent of ingestion, the system enriches metadata (DOI, authors, v
 2. **Given** two PDFs share a DOI, **When** deduplication runs, **Then** the user is prompted to merge or keep both; the final state is persisted to AI-layer metadata with provenance.
 3. **Given** the user issues "Refresh metadata for Paper X", **When** the command runs, **Then** the system shows a before/after diff, allows the user to accept/reject changes, and logs the decision.
 
+Remote metadata enrichment commands must always surface the consent manifest in chat; if the user declines approval, the command must fall back to local heuristics or mark the record for manual review without contacting remote services.
+
 ---
 
 ### User Story 3 - Consent-Driven Figure Extraction (Priority: P2)
@@ -76,7 +78,7 @@ Researchers can review ingestion/figure history, redo specific actions (e.g., re
 - Ingestion interrupted by app crash or system sleep: batch must resume from the last confirmed checkpoint without duplicating progress.
 - Papers in multiple languages or scripts: metadata enrichment must identify language and handle right-to-left scripts without corrupting text.
 - Locked or DRM PDFs: the system must flag them, avoid figure extraction, and guide the user to manual handling.
-- Remote lookups disabled: metadata enrichment must degrade gracefully, using local heuristics only and clearly communicating reduced accuracy.
+- Remote lookups disabled or consent withheld: metadata enrichment must degrade gracefully, using local heuristics only, clearly communicating reduced accuracy, and recording the decision in orchestration logs.
 
 ## Requirements *(mandatory)*
 
@@ -98,6 +100,7 @@ Researchers can review ingestion/figure history, redo specific actions (e.g., re
 - **IngestionBatch**: Base ID, source path, counts (processed, skipped, failed, pending figures), status, progress checkpoints, timestamps.
 - **MetadataRecord**: DOI, title, authors, venue, language, keywords, references, dedup status, last_updated, provenance.
 - **FigureAsset**: Paper ID, figure ID, caption, image path, approval batch, extraction status, last_updated.
+- **MetadataOnlyRecord**: Paper identifier, missing-artifact flags, provenance, and regenerable metadata fields stored when PDFs/figures are unavailable.
 - **ConsentManifest**: Operation type (metadata lookup, figure extraction), scope (papers/batch), approval text, timestamp, orchestration event ID.
 - **AuditEntry**: Consolidated view over orchestration events (ingestion, metadata refresh, figure extraction, undo) to power chat history commands.
 

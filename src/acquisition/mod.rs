@@ -1,3 +1,7 @@
+pub mod figure_store;
+
+pub use figure_store::{FigureAssetRecord, FigureExtractionStatus, FigureStore};
+
 use crate::bases::{Base, BaseManager, LibraryEntry};
 use crate::orchestration::{
     log_event, AcquisitionBatch, AcquisitionRecord, EventType, OrchestrationLog,
@@ -132,12 +136,7 @@ pub fn run_acquisition_batch(
 
     manager.save_library_entries(base, &entries)?;
 
-    let batch = AcquisitionBatch::new(
-        base.id,
-        approval_text.to_string(),
-        records,
-        Utc::now(),
-    );
+    let batch = AcquisitionBatch::new(base.id, approval_text.to_string(), records, Utc::now());
     let log = OrchestrationLog::for_base(base);
     log.record_batch(&batch)?;
 
@@ -172,4 +171,3 @@ fn write_placeholder_pdf(user_layer: &PathBuf, identifier: &str) -> Result<PathB
     )?;
     Ok(pdf_path)
 }
-

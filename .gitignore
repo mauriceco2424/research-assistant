@@ -16,3 +16,9 @@ Thumbs.db
 node_modules/
 dist/
 build/
+target/
+debug/
+release/
+*.rs.bk
+*.rlib
+*.prof*

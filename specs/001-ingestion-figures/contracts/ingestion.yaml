@@ -1,0 +1,81 @@
+openapi: 3.0.0
+info:
+  title: ResearchBase Ingestion & Figures API
+  version: 0.1.0
+paths:
+  /bases/{baseId}/ingestion/batches:
+    post:
+      summary: Start ingestion batch
+      description: Launch ingestion for a folder/export path.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source_path:
+                  type: string
+                options:
+                  type: object
+                  properties:
+                    include_exports:
+                      type: boolean
+                      default: false
+      responses:
+        '202':
+          description: Batch accepted
+    get:
+      summary: List ingestion batches
+      responses:
+        '200':
+          description: Batch list
+  /bases/{baseId}/ingestion/batches/{batchId}:
+    get:
+      summary: Get batch status
+      responses:
+        '200':
+          description: Status payload (progress, counts)
+  /bases/{baseId}/ingestion/batches/{batchId}/pause:
+    post:
+      summary: Pause batch
+      responses:
+        '200':
+          description: Batch paused
+  /bases/{baseId}/ingestion/batches/{batchId}/resume:
+    post:
+      summary: Resume batch
+      responses:
+        '200':
+          description: Batch resumed
+  /bases/{baseId}/metadata/refresh:
+    post:
+      summary: Refresh metadata for papers
+      description: Accepts list of paper IDs or dedup groups; returns preview diff and requires confirmation.
+      responses:
+        '200':
+          description: Preview generated
+  /bases/{baseId}/figures/extractions:
+    post:
+      summary: Request figure extraction batch
+      responses:
+        '202':
+          description: Extraction queued pending consent
+  /bases/{baseId}/figures/extractions/{batchId}/approve:
+    post:
+      summary: Approve figure extraction consent manifest
+      responses:
+        '200':
+          description: Consent recorded and extraction starts
+  /bases/{baseId}/history:
+    get:
+      summary: Ingestion & figure history
+      parameters:
+        - in: query
+          name: range
+          schema:
+            type: string
+          description: e.g., "7d"
+      responses:
+        '200':
+          description: Chronological history entries
