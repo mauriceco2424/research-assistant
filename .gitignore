@@ -5,3 +5,14 @@
 .codex/sessions/
 .codex/version.json
 .lh/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.tmp
+*.log
+.env*
+node_modules/
+dist/
+build/

@@ -1,0 +1,139 @@
+//! Configuration primitives for ResearchBase Paper Bases.
+//!
+//! Stored in a machine-readable TOML file located at:
+//!   %APPDATA%/ResearchBase/config.toml on Windows
+//!   $XDG_CONFIG_HOME/researchbase/config.toml on Linux
+//!   ~/Library/Application Support/ResearchBase/config.toml on macOS
+//!
+//! The config tracks the last active Base and per-install acquisition
+//! preferences. This module defines the structs and helper functions the
+//! rest of the application will use once the Tauri app is initialized.
+
+use serde::{Deserialize, Serialize};
+
+/// Root configuration persisted per installation.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AppConfig {
+    /// Identifier of the Paper Base that was active when the app last shut down.
+    pub last_active_base_id: Option<String>,
+    /// Per-install acquisition options (network permissions, batch limits, etc.).
+    #[serde(default)]
+    pub acquisition: AcquisitionSettings,
+}
+
+/// Acquisition-related preferences tied to the local install.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AcquisitionSettings {
+    /// Whether remote metadata/PDF lookups are enabled for this install.
+    #[serde(default = "default_remote_allowed")]
+    pub remote_allowed: bool,
+    /// Maximum number of papers allowed in a single approved batch.
+    #[serde(default = "default_batch_limit")]
+    pub max_batch_size: u32,
+}
+
+impl Default for AcquisitionSettings {
+    fn default() -> Self {
+        Self {
+            remote_allowed: default_remote_allowed(),
+            max_batch_size: default_batch_limit(),
+        }
+    }
+}
+
+const fn default_remote_allowed() -> bool {
+    true
+}
+
+const fn default_batch_limit() -> u32 {
+    100
+}
+
+/// Standard relative path to the config file (resolved per OS at runtime).
+pub const CONFIG_FILE_NAME: &str = "config.toml";
+
+use anyhow::{Context, Result};
+use directories::BaseDirs;
+use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+/// Returns the root directory where ResearchBase stores data.
+///
+/// Order of precedence:
+/// 1. `RESEARCHBASE_HOME` environment variable.
+/// 2. OS-specific data directory via `directories::BaseDirs`.
+pub fn workspace_root() -> Result<PathBuf> {
+    if let Ok(path) = env::var("RESEARCHBASE_HOME") {
+        return Ok(PathBuf::from(path));
+    }
+    let base_dirs = BaseDirs::new().context("Unable to determine OS data directory")?;
+    Ok(base_dirs.data_dir().join("ResearchBase"))
+}
+
+/// Returns the config directory (same as workspace root for now).
+pub fn config_dir() -> Result<PathBuf> {
+    let root = workspace_root()?;
+    Ok(root.join("config"))
+}
+
+/// Path to the config file.
+pub fn config_file_path() -> Result<PathBuf> {
+    Ok(config_dir()?.join(CONFIG_FILE_NAME))
+}
+
+/// Loads the configuration from disk or returns defaults.
+pub fn load_or_default() -> Result<AppConfig> {
+    let path = config_file_path()?;
+    if path.exists() {
+        let data = fs::read_to_string(&path)
+            .with_context(|| format!("Failed to read config file {:?}", path))?;
+        let cfg: AppConfig = toml::from_str(&data)
+            .with_context(|| format!("Failed to parse config file {:?}", path))?;
+        Ok(cfg)
+    } else {
+        Ok(AppConfig::default())
+    }
+}
+
+/// Persists the configuration to disk.
+pub fn save(config: &AppConfig) -> Result<()> {
+    let dir = config_dir()?;
+    fs::create_dir_all(&dir)?;
+    let path = config_file_path()?;
+    let data = toml::to_string_pretty(config)?;
+    fs::write(&path, data)?;
+    Ok(())
+}
+
+/// Ensures the workspace structure exists (User/ and AI/ directories).
+pub fn ensure_workspace_structure() -> Result<WorkspacePaths> {
+    let root = workspace_root()?;
+    let user_dir = root.join("User");
+    let ai_dir = root.join("AI");
+    fs::create_dir_all(&user_dir)?;
+    fs::create_dir_all(&ai_dir)?;
+    Ok(WorkspacePaths {
+        root,
+        user_dir,
+        ai_dir,
+    })
+}
+
+/// Convenience struct exposing important workspace paths.
+#[derive(Debug, Clone)]
+pub struct WorkspacePaths {
+    pub root: PathBuf,
+    pub user_dir: PathBuf,
+    pub ai_dir: PathBuf,
+}
+
+impl WorkspacePaths {
+    pub fn base_user_layer(&self, slug: &str) -> PathBuf {
+        self.user_dir.join(slug)
+    }
+
+    pub fn base_ai_layer(&self, base_id: &str) -> PathBuf {
+        self.ai_dir.join(base_id)
+    }
+}

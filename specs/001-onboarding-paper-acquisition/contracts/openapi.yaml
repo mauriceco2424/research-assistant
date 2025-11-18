@@ -1,0 +1,57 @@
+openapi: 3.0.0
+info:
+  title: ResearchBase Onboarding & Paper Acquisition API
+  version: 0.1.0
+paths:
+  /bases:
+    get:
+      summary: List Paper Bases
+      description: Returns all available Paper Bases and indicates the active Base.
+      responses:
+        '200':
+          description: List of bases
+    post:
+      summary: Create Paper Base
+      description: Creates a new Paper Base with associated User and AI layers.
+      responses:
+        '201':
+          description: Base created
+
+  /bases/{baseId}/onboarding/path-a:
+    post:
+      summary: Start Path A onboarding
+      description: Trigger ingestion of existing PDFs or exports for the specified Base.
+      responses:
+        '202':
+          description: Ingestion started
+
+  /bases/{baseId}/onboarding/path-b/candidates:
+    post:
+      summary: Generate Path B candidates
+      description: Use research interview answers to propose candidate papers with metadata and identifiers.
+      responses:
+        '200':
+          description: Candidate list generated
+
+  /bases/{baseId}/acquisition/batches:
+    post:
+      summary: Approve acquisition batch
+      description: Approves acquisition for a selected subset of candidate papers and starts the Paper Acquisition Workflow.
+      responses:
+        '202':
+          description: Acquisition batch accepted
+    get:
+      summary: List acquisition batches
+      description: Returns acquisition history for the specified Base.
+      responses:
+        '200':
+          description: Acquisition history
+
+  /bases/{baseId}/acquisition/batches/{batchId}/undo:
+    post:
+      summary: Undo acquisition batch
+      description: Rolls back library entries and artifacts created by a specific acquisition batch.
+      responses:
+        '200':
+          description: Batch undone
+
