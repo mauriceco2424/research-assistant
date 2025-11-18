@@ -4,7 +4,8 @@ pub use figure_store::{FigureAssetRecord, FigureExtractionStatus, FigureStore};
 
 use crate::bases::{Base, BaseManager, LibraryEntry};
 use crate::orchestration::{
-    log_event, AcquisitionBatch, AcquisitionRecord, EventType, OrchestrationLog,
+    log_event, AcquisitionBatch, AcquisitionRecord, EventType, FigureExtractionBatch,
+    OrchestrationLog,
 };
 use anyhow::Result;
 use chrono::Utc;
@@ -158,6 +159,81 @@ pub fn run_acquisition_batch(
 pub fn undo_last_batch(manager: &BaseManager, base: &Base) -> Result<Option<AcquisitionBatch>> {
     let log = OrchestrationLog::for_base(base);
     log.undo_last_batch(base, manager)
+}
+
+pub struct FigureExtractionOutcome {
+    pub batch: FigureExtractionBatch,
+    pub records: Vec<FigureAssetRecord>,
+}
+
+/// Runs consented figure extraction for optional subset of papers.
+pub fn run_figure_extraction(
+    manager: &BaseManager,
+    base: &Base,
+    paper_ids: Option<Vec<Uuid>>,
+    approval_text: &str,
+) -> Result<FigureExtractionOutcome> {
+    let entries = manager.load_library_entries(base)?;
+    let targets: Vec<LibraryEntry> = match paper_ids {
+        Some(ids) if !ids.is_empty() => entries
+            .into_iter()
+            .filter(|entry| ids.contains(&entry.entry_id))
+            .collect(),
+        _ => entries,
+    };
+    if targets.is_empty() {
+        anyhow::bail!("No papers available for figure extraction");
+    }
+    let store = FigureStore::new(base);
+    let mut created = Vec::new();
+    let mut asset_ids = Vec::new();
+    let batch_id = Uuid::new_v4();
+    for entry in targets {
+        let asset_id = Uuid::new_v4();
+        let bytes = format!("Placeholder figure for {}", entry.title).into_bytes();
+        let file_name = format!("figure-{asset_id}.txt");
+        let image_path = store.store_image(&batch_id, &file_name, &bytes)?;
+        let record = FigureAssetRecord {
+            asset_id,
+            paper_id: entry.entry_id,
+            caption: format!("Auto-captured figure for {}", entry.title),
+            image_path,
+            approval_batch_id: Some(batch_id),
+            extraction_status: FigureExtractionStatus::Success,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        store.append_record(&record)?;
+        asset_ids.push(asset_id);
+        created.push(record);
+    }
+
+    let batch = FigureExtractionBatch::new(
+        base.id,
+        approval_text.to_string(),
+        asset_ids,
+        chrono::Utc::now(),
+    );
+    let log = OrchestrationLog::for_base(base);
+    log.record_figure_batch(&batch)?;
+
+    log_event(
+        manager,
+        base,
+        EventType::FigureExtractionRequested,
+        serde_json::json!({ "batch_id": batch.batch_id, "figure_count": created.len() }),
+    )?;
+    log_event(
+        manager,
+        base,
+        EventType::FigureExtractionCompleted,
+        serde_json::json!({ "batch_id": batch.batch_id, "figure_count": created.len() }),
+    )?;
+
+    Ok(FigureExtractionOutcome {
+        batch,
+        records: created,
+    })
 }
 
 fn write_placeholder_pdf(user_layer: &PathBuf, identifier: &str) -> Result<PathBuf> {

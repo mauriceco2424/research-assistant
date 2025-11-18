@@ -87,6 +87,9 @@ impl FigureStore {
         let mut removed = Vec::new();
         records.retain(|record| {
             if record.approval_batch_id == Some(*batch_id) {
+                if record.image_path.exists() {
+                    let _ = fs::remove_file(&record.image_path);
+                }
                 removed.push(record.clone());
                 false
             } else {

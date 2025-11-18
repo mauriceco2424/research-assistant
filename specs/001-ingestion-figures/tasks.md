@@ -60,25 +60,25 @@ description: "Task list for paper ingestion, metadata enrichment & figure extrac
 **Goal**: Optional figure extraction with consent manifests, storage, and gallery support.
 **Independent Test**: Run figure extraction for a batch, approve consent, verify figures stored locally and appear in regenerated reports.
 
-- [ ] T020 [US3] Implement consent prompt + approval manifest in `src/chat/mod.rs`
-- [ ] T021 [US3] Implement figure extraction worker (per paper) in `src/acquisition/mod.rs`
-- [ ] T022 [US3] Save figure assets & metadata in `src/acquisition/figure_store.rs`
-- [ ] T023 [US3] Update report generation for figure galleries in `src/reports/mod.rs`
-- [ ] T024 [US3] Log extraction batches + failures via orchestration events in `src/orchestration/mod.rs`
-- [ ] T025 [US3] Add integration test `tests/integration/figure_extraction.rs`
+- [X] T020 [US3] Implement consent prompt + approval manifest in `src/chat/mod.rs`
+- [X] T021 [US3] Implement figure extraction worker (per paper) in `src/acquisition/mod.rs`
+- [X] T022 [US3] Save figure assets & metadata in `src/acquisition/figure_store.rs`
+- [X] T023 [US3] Update report generation for figure galleries in `src/reports/mod.rs`
+- [X] T024 [US3] Log extraction batches + failures via orchestration events in `src/orchestration/mod.rs`
+- [X] T025 [US3] Add integration test `tests/integration/figure_extraction.rs`
 
 ## Phase 6: User Story 4 – Chat Reprocessing & Audit Trails (Priority: P2)
 
 **Goal**: Provide history, reprocessing, and undo commands entirely via chat.
 **Independent Test**: Show history for last 7 days, reprocess one paper's figures, undo last extraction, confirm artifacts removed.
 
-- [ ] T026 [US4] Implement `history show` command with filters in `src/chat/mod.rs`
-- [ ] T027 [US4] Implement per-paper reprocess command (figures/metadata) in `src/chat/mod.rs`
-- [ ] T042 [US4] Ensure figure reprocess commands re-check consent state and log orchestration context in `src/chat/mod.rs` and `src/orchestration/mod.rs`
-- [ ] T028 [US4] Implement undo ingestion/figure batch logic in `src/orchestration/mod.rs`
-- [ ] T029 [US4] Format chat summaries with links to artifacts in `src/chat/mod.rs`
-- [ ] T030 [US4] Add integration test `tests/integration/history_undo.rs`
-- [ ] T043 [US4] Add integration test verifying figure reprocess requires consent renewal in `tests/integration/figure_reprocess_consent.rs`
+- [X] T026 [US4] Implement `history show` command with filters in `src/chat/mod.rs`
+- [X] T027 [US4] Implement per-paper reprocess command (figures/metadata) in `src/chat/mod.rs`
+- [X] T042 [US4] Ensure figure reprocess commands re-check consent state and log orchestration context in `src/chat/mod.rs` and `src/orchestration/mod.rs`
+- [X] T028 [US4] Implement undo ingestion/figure batch logic in `src/orchestration/mod.rs`
+- [X] T029 [US4] Format chat summaries with links to artifacts in `src/chat/mod.rs`
+- [X] T030 [US4] Add integration test `tests/integration/history_undo.rs`
+- [X] T043 [US4] Add integration test verifying figure reprocess requires consent renewal in `tests/integration/figure_reprocess_consent.rs`
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 

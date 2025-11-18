@@ -33,3 +33,6 @@ mod metadata_consent;
 mod metadata_offline;
 mod metadata_multilang;
 mod metadata_refresh;
+mod figure_extraction;
+mod history_undo;
+mod figure_reprocess_consent;

@@ -1,9 +1,11 @@
+use crate::acquisition::figure_store::{FigureAssetRecord, FigureStore};
 use crate::bases::{Base, BaseManager, LibraryEntry};
 use crate::orchestration::{log_event, EventType};
 use anyhow::Result;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::PathBuf;
+use uuid::Uuid;
 
 /// Category report representation.
 #[derive(Debug, Clone)]
@@ -28,7 +30,11 @@ pub fn generate_category_reports(entries: &[LibraryEntry]) -> Vec<CategoryReport
         .collect()
 }
 
-pub fn write_category_report(base: &Base, categories: &[CategoryReport]) -> Result<PathBuf> {
+pub fn write_category_report(
+    base: &Base,
+    categories: &[CategoryReport],
+    figure_map: &HashMap<Uuid, Vec<FigureAssetRecord>>,
+) -> Result<PathBuf> {
     let report_dir = base.user_layer_path.join("reports");
     fs::create_dir_all(&report_dir)?;
     let path = report_dir.join("category_report.html");
@@ -37,7 +43,15 @@ pub fn write_category_report(base: &Base, categories: &[CategoryReport]) -> Resu
     for cat in categories {
         html.push_str(&format!("<h2>{}</h2><ul>", cat.name));
         for entry in &cat.entries {
-            html.push_str(&format!("<li>{}</li>", entry.title));
+            html.push_str(&format!("<li><strong>{}</strong>", entry.title));
+            if let Some(figures) = figure_map.get(&entry.entry_id) {
+                html.push_str("<div class=\"figures\">");
+                for figure in figures {
+                    html.push_str(&render_figure_html(figure));
+                }
+                html.push_str("</div>");
+            }
+            html.push_str("</li>");
         }
         html.push_str("</ul>");
     }
@@ -46,7 +60,11 @@ pub fn write_category_report(base: &Base, categories: &[CategoryReport]) -> Resu
     Ok(path)
 }
 
-pub fn write_global_report(base: &Base, entries: &[LibraryEntry]) -> Result<PathBuf> {
+pub fn write_global_report(
+    base: &Base,
+    entries: &[LibraryEntry],
+    figure_map: &HashMap<Uuid, Vec<FigureAssetRecord>>,
+) -> Result<PathBuf> {
     let report_dir = base.user_layer_path.join("reports");
     fs::create_dir_all(&report_dir)?;
     let path = report_dir.join("global_report.html");
@@ -54,13 +72,21 @@ pub fn write_global_report(base: &Base, entries: &[LibraryEntry]) -> Result<Path
     html.push_str("<html><body><h1>Global Report</h1><ul>");
     for entry in entries {
         html.push_str(&format!(
-            "<li><strong>{}</strong> ({})</li>",
+            "<li><strong>{}</strong> ({})",
             entry.title,
             entry
                 .year
                 .map(|y| y.to_string())
                 .unwrap_or_else(|| "n.d.".into())
         ));
+        if let Some(figures) = figure_map.get(&entry.entry_id) {
+            html.push_str("<div class=\"figures\">");
+            for figure in figures {
+                html.push_str(&render_figure_html(figure));
+            }
+            html.push_str("</div>");
+        }
+        html.push_str("</li>");
     }
     html.push_str("</ul></body></html>");
     fs::write(&path, html)?;
@@ -73,8 +99,9 @@ pub fn generate_and_log_reports(
     entries: &[LibraryEntry],
 ) -> Result<(PathBuf, PathBuf)> {
     let categories = generate_category_reports(entries);
-    let cat_path = write_category_report(base, &categories)?;
-    let global_path = write_global_report(base, entries)?;
+    let figure_map = load_figures_grouped(base)?;
+    let cat_path = write_category_report(base, &categories, &figure_map)?;
+    let global_path = write_global_report(base, entries, &figure_map)?;
     log_event(
         manager,
         base,
@@ -85,4 +112,21 @@ pub fn generate_and_log_reports(
         }),
     )?;
     Ok((cat_path, global_path))
+}
+
+fn load_figures_grouped(base: &Base) -> Result<HashMap<Uuid, Vec<FigureAssetRecord>>> {
+    let store = FigureStore::new(base);
+    let mut map: HashMap<Uuid, Vec<FigureAssetRecord>> = HashMap::new();
+    for record in store.load_records()? {
+        map.entry(record.paper_id).or_default().push(record);
+    }
+    Ok(map)
+}
+
+fn render_figure_html(figure: &FigureAssetRecord) -> String {
+    let path = figure.image_path.to_string_lossy();
+    format!(
+        "<figure><figcaption>{}</figcaption><a href=\"file://{path}\">{}</a></figure>",
+        figure.caption, path
+    )
 }

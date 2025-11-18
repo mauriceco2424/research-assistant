@@ -247,6 +247,27 @@ impl OrchestrationLog {
         }
         Ok(())
     }
+
+    pub fn load_events(&self) -> Result<Vec<OrchestrationEvent>> {
+        if !self.events_path.exists() {
+            return Ok(Vec::new());
+        }
+        let data = fs::read_to_string(&self.events_path)?;
+        let mut events = Vec::new();
+        for line in data.lines().filter(|l| !l.trim().is_empty()) {
+            let event: OrchestrationEvent = serde_json::from_str(line)?;
+            events.push(event);
+        }
+        Ok(events)
+    }
+
+    pub fn load_events_since(&self, cutoff: DateTime<Utc>) -> Result<Vec<OrchestrationEvent>> {
+        Ok(self
+            .load_events()?
+            .into_iter()
+            .filter(|event| event.timestamp >= cutoff)
+            .collect())
+    }
 }
 
 /// Append a simple orchestration event helper.

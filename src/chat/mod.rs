@@ -1,6 +1,6 @@
 use crate::acquisition::{
     discover_candidates, generate_candidates_from_interview, run_acquisition_batch,
-    undo_last_batch, CandidatePaper, InterviewAnswers,
+    run_figure_extraction, undo_last_batch, CandidatePaper, InterviewAnswers,
 };
 use crate::bases::{Base, BaseManager};
 use crate::ingestion::{
@@ -13,6 +13,7 @@ use crate::orchestration::{
 };
 use crate::reports::generate_and_log_reports;
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
@@ -184,14 +185,34 @@ impl ChatSession {
         }
     }
 
-    /// Placeholder consent-driven figure extraction command.
-    pub fn figures_extract(&mut self, batch_hint: Option<Uuid>) -> Result<String> {
-        let scope = batch_hint
-            .map(|id| format!("batch {}", id))
-            .unwrap_or_else(|| "latest ingestion batch".into());
+    pub fn figures_extract(
+        &mut self,
+        paper_ids: Option<Vec<Uuid>>,
+        approval_text: &str,
+    ) -> Result<String> {
+        if approval_text.trim().is_empty() {
+            anyhow::bail!("Figure extraction requires approval text.");
+        }
+        let base = self.active_base()?;
+        let scope = ConsentScope {
+            batch_id: None,
+            paper_ids: paper_ids.clone().unwrap_or_default(),
+        };
+        require_remote_operation_consent(
+            &self.manager,
+            &base,
+            ConsentOperation::FigureExtraction,
+            approval_text,
+            scope,
+            serde_json::json!({ "papers": paper_ids.as_ref().map(|v| v.len()).unwrap_or(0) }),
+        )?;
+        let outcome = run_figure_extraction(&self.manager, &base, paper_ids, approval_text)?;
+        let entries = self.manager.load_library_entries(&base)?;
+        let _ = generate_and_log_reports(&self.manager, &base, &entries)?;
         Ok(format!(
-            "Figure extraction stub acknowledged for {}. Consent + storage workflow pending implementation.",
-            scope
+            "Figure extraction batch {} created {} figure assets.",
+            outcome.batch.batch_id,
+            outcome.records.len()
         ))
     }
 
@@ -199,11 +220,30 @@ impl ChatSession {
     pub fn history_show(&self, range_hint: Option<&str>) -> Result<Vec<String>> {
         let base = self.active_base()?;
         let log = OrchestrationLog::for_base(&base);
+        let cutoff = parse_history_range(range_hint)?;
         let mut entries = Vec::new();
         for batch in log.load_batches()? {
+            if batch.approved_at >= cutoff {
+                entries.push(format!(
+                    "{} | Acquisition batch {} (approved '{}')",
+                    batch.approved_at, batch.batch_id, batch.approved_text
+                ));
+            }
+        }
+        for batch in log.load_figure_batches()? {
+            if batch.approved_at >= cutoff {
+                entries.push(format!(
+                    "{} | Figure extraction {} ({} assets)",
+                    batch.approved_at,
+                    batch.batch_id,
+                    batch.figure_asset_ids.len()
+                ));
+            }
+        }
+        for event in log.load_events_since(cutoff)? {
             entries.push(format!(
-                "{} | Acquisition batch {} (approved '{}')",
-                batch.approved_at, batch.batch_id, batch.approved_text
+                "{} | Event {:?} -> {}",
+                event.timestamp, event.event_type, event.details
             ));
         }
         if entries.is_empty() {
@@ -315,4 +355,78 @@ impl ChatSession {
             Ok(None)
         }
     }
+
+    pub fn undo_last_figure_extraction(&mut self) -> Result<String> {
+        let base = self.active_base()?;
+        let log = OrchestrationLog::for_base(&base);
+        if let Some(batch) = log.undo_last_figure_batch()? {
+            let store = crate::acquisition::FigureStore::new(&base);
+            let removed = store.remove_records_for_batch(&batch.batch_id)?;
+            Ok(format!(
+                "Undid figure extraction batch {} (removed {} assets).",
+                batch.batch_id,
+                removed.len()
+            ))
+        } else {
+            Ok("No figure extraction batches to undo.".into())
+        }
+    }
+
+    pub fn reprocess_figures(&mut self, paper_id: Uuid, approval_text: &str) -> Result<String> {
+        if approval_text.trim().is_empty() {
+            anyhow::bail!("Figure extraction requires approval text.");
+        }
+        let base = self.active_base()?;
+        let scope = ConsentScope {
+            batch_id: None,
+            paper_ids: vec![paper_id],
+        };
+        require_remote_operation_consent(
+            &self.manager,
+            &base,
+            ConsentOperation::FigureExtraction,
+            approval_text,
+            scope,
+            serde_json::json!({ "paper": paper_id }),
+        )?;
+        let outcome =
+            run_figure_extraction(&self.manager, &base, Some(vec![paper_id]), approval_text)?;
+        Ok(format!(
+            "Reprocessed figures for paper {} in batch {}.",
+            paper_id, outcome.batch.batch_id
+        ))
+    }
+
+    pub fn reprocess_metadata(
+        &mut self,
+        paper_id: Uuid,
+        approval_text: Option<&str>,
+    ) -> Result<String> {
+        let base = self.active_base()?;
+        let request = MetadataRefreshRequest {
+            paper_ids: Some(vec![paper_id]),
+            allow_remote: approval_text.is_some(),
+            approval_text: approval_text.map(|s| s.to_string()),
+        };
+        let outcome = refresh_metadata(&self.manager, &base, request)?;
+        Ok(format!(
+            "Reprocessed metadata for {} (batch {}, remote={}).",
+            paper_id, outcome.batch_id, outcome.used_remote
+        ))
+    }
+}
+
+fn parse_history_range(range_hint: Option<&str>) -> Result<DateTime<Utc>> {
+    if let Some(hint) = range_hint {
+        if let Some(days) = hint.strip_suffix('d') {
+            if let Ok(num) = days.parse::<i64>() {
+                return Ok(Utc::now() - chrono::Duration::days(num));
+            }
+        } else if let Some(hours) = hint.strip_suffix('h') {
+            if let Ok(num) = hours.parse::<i64>() {
+                return Ok(Utc::now() - chrono::Duration::hours(num));
+            }
+        }
+    }
+    Ok(Utc::now() - chrono::Duration::days(7))
 }

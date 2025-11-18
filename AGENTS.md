@@ -188,9 +188,13 @@ When crafting `/speckit.specify` arguments, agents MUST:
   constitution and master spec.
 - When editing specs or templates, always:
   - check `.specify/memory/constitution.md`,
-  - document how your change affects P1–P10.
+  - document how your change affects P1-P10.
 - Do not add UI complexity, network behavior, or storage mechanisms that
   bypass existing architectural rules.
-- When unsure, propose the trade‑off explicitly in text rather than silently
-  “bending” the constraints.
+- When unsure, propose the trade-off explicitly in text rather than silently
+  "bending" the constraints.
+- **Never rewrite history without explicit approval.** If the local branch is
+  ahead of the remote (e.g., push failed), keep the local commits. Do **not**
+  run `git reset`, `git revert`, or remove user work unless the user explicitly
+  requests it. Instead, inform the user and wait for guidance.
 
