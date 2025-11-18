@@ -5,7 +5,7 @@ pub use figure_store::{FigureAssetRecord, FigureExtractionStatus, FigureStore};
 use crate::bases::{Base, BaseManager, LibraryEntry};
 use crate::orchestration::{
     log_event, AcquisitionBatch, AcquisitionRecord, EventType, FigureExtractionBatch,
-    OrchestrationLog,
+    FigureMetricsRecord, MetricRecord, OrchestrationLog,
 };
 use anyhow::Result;
 use chrono::Utc;
@@ -188,7 +188,7 @@ pub fn run_figure_extraction(
     let mut created = Vec::new();
     let mut asset_ids = Vec::new();
     let batch_id = Uuid::new_v4();
-    for entry in targets {
+    for entry in &targets {
         let asset_id = Uuid::new_v4();
         let bytes = format!("Placeholder figure for {}", entry.title).into_bytes();
         let file_name = format!("figure-{asset_id}.txt");
@@ -217,18 +217,41 @@ pub fn run_figure_extraction(
     let log = OrchestrationLog::for_base(base);
     log.record_figure_batch(&batch)?;
 
+    let requested = targets.len();
+    let success_rate = if requested == 0 {
+        0.0
+    } else {
+        (created.len() as f32 / requested as f32) * 100.0
+    };
     log_event(
         manager,
         base,
         EventType::FigureExtractionRequested,
-        serde_json::json!({ "batch_id": batch.batch_id, "figure_count": created.len() }),
+        serde_json::json!({
+            "batch_id": batch.batch_id,
+            "figure_count": created.len(),
+            "requested": requested,
+            "success_rate": success_rate
+        }),
     )?;
     log_event(
         manager,
         base,
         EventType::FigureExtractionCompleted,
-        serde_json::json!({ "batch_id": batch.batch_id, "figure_count": created.len() }),
+        serde_json::json!({
+            "batch_id": batch.batch_id,
+            "figure_count": created.len(),
+            "requested": requested,
+            "success_rate": success_rate
+        }),
     )?;
+    let metrics = MetricRecord::Figure(FigureMetricsRecord {
+        batch_id: batch.batch_id,
+        requested,
+        succeeded: created.len(),
+        success_rate,
+    });
+    log.record_metric(&metrics)?;
 
     Ok(FigureExtractionOutcome {
         batch,

@@ -145,6 +145,18 @@ impl ChatSession {
                 outcome.duplicates.len()
             ));
         }
+        response.push_str(&format!(
+            " DOI coverage: {:.1}% ({} of {}).",
+            outcome.doi_accuracy,
+            outcome.doi_assigned,
+            outcome.updated_records.len()
+        ));
+        if outcome.manual_review_backlog > 0 {
+            response.push_str(&format!(
+                " {} entries need manual DOI review.",
+                outcome.manual_review_backlog
+            ));
+        }
         Ok(response)
     }
 

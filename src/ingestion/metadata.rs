@@ -23,6 +23,9 @@ pub struct MetadataRefreshResult {
     pub duplicates: Vec<DuplicateGroup>,
     pub used_remote: bool,
     pub offline_mode: bool,
+    pub doi_assigned: usize,
+    pub manual_review_backlog: usize,
+    pub doi_accuracy: f32,
 }
 
 pub fn refresh_metadata(
@@ -56,6 +59,8 @@ pub fn refresh_metadata(
 
     let mut changes = Vec::new();
     let mut updated_records = Vec::new();
+    let mut doi_assigned = 0usize;
+    let mut manual_review_backlog = 0usize;
     let batch_id = Uuid::new_v4();
 
     for entry in target_entries {
@@ -92,6 +97,11 @@ pub fn refresh_metadata(
             record.references = vec![format!("lookup://{}", identifier)];
         }
         record.last_updated = Utc::now();
+        if record.doi.is_some() {
+            doi_assigned += 1;
+        } else {
+            manual_review_backlog += 1;
+        }
 
         manager.upsert_metadata_record(base, record.clone())?;
         existing_records.insert(identifier.clone(), record.clone());
@@ -135,12 +145,21 @@ pub fn refresh_metadata(
         }),
     )?;
 
+    let doi_accuracy = if updated_records.is_empty() {
+        0.0
+    } else {
+        (doi_assigned as f32 / updated_records.len() as f32) * 100.0
+    };
+
     Ok(MetadataRefreshResult {
         batch_id,
         updated_records,
         duplicates,
         used_remote: allow_remote,
         offline_mode: !allow_remote,
+        doi_assigned,
+        manual_review_backlog,
+        doi_accuracy,
     })
 }
 

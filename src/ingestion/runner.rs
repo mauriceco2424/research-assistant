@@ -3,9 +3,14 @@ use super::error::{is_supported_extension, IngestionIssue, IngestionIssueReason}
 use super::IngestionSummary;
 use crate::bases::{Base, BaseManager, LibraryEntry};
 use crate::ingestion::copy_to_user_layer;
-use crate::orchestration::{log_event, EventType};
+use crate::orchestration::{
+    log_event, EventType, IngestionMetricsRecord, MetricRecord, OrchestrationLog,
+    INGESTION_SLA_SECS,
+};
 use anyhow::{Context, Result};
 use chrono::Utc;
+use rayon::prelude::*;
+use rayon::ThreadPoolBuilder;
 use serde_json::json;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -160,6 +165,8 @@ impl<'a> IngestionRunner<'a> {
         let summary = self.process_chunk(&mut state, &files)?;
         self.store.upsert(&state)?;
         if matches!(state.status, IngestionBatchStatus::Completed) {
+            let duration_ms = (Utc::now() - state.started_at).num_milliseconds();
+            let sla_breached = duration_ms > INGESTION_SLA_SECS * 1000;
             log_event(
                 self.manager,
                 &self.base,
@@ -168,14 +175,25 @@ impl<'a> IngestionRunner<'a> {
                     "batch_id": state.batch_id,
                     "ingested": state.ingested_files,
                     "skipped": state.skipped_files,
-                    "failed": state.failed_files
+                    "failed": state.failed_files,
+                    "duration_ms": duration_ms,
+                    "sla_breached": sla_breached
                 }),
             )?;
+            let log = OrchestrationLog::for_base(&self.base);
+            log.record_metric(&MetricRecord::Ingestion(IngestionMetricsRecord {
+                batch_id: state.batch_id,
+                duration_ms,
+                ingested: state.ingested_files,
+                skipped: state.skipped_files,
+                failed: state.failed_files,
+                sla_breached,
+            }))?;
         }
         Ok(IngestionOutcome { state, summary })
     }
 
-    fn process_chunk(
+fn process_chunk(
         &self,
         state: &mut IngestionBatchState,
         files: &[PathBuf],
@@ -188,6 +206,7 @@ impl<'a> IngestionRunner<'a> {
         let start_index = starting_index(files, &state.last_checkpoint, &state.source_path);
         let mut processed_in_chunk = 0usize;
         let mut last_processed_label: Option<String> = None;
+        let mut pending_entries: Vec<PendingEntry> = Vec::new();
 
         for path in files.iter().skip(start_index) {
             if processed_in_chunk >= self.checkpoint_interval {
@@ -229,7 +248,7 @@ impl<'a> IngestionRunner<'a> {
                 .and_then(|s| s.to_str())
                 .unwrap_or("Untitled file")
                 .replace('_', " ");
-            let mut entry = LibraryEntry {
+            let entry = LibraryEntry {
                 entry_id: Uuid::new_v4(),
                 title,
                 authors: Vec::new(),
@@ -242,23 +261,61 @@ impl<'a> IngestionRunner<'a> {
                 created_at: Utc::now(),
                 updated_at: Utc::now(),
             };
+            pending_entries.push(PendingEntry {
+                path: path.clone(),
+                identifier,
+                entry,
+            });
+        }
 
-            match copy_to_user_layer(&self.base, path) {
-                Ok(target_pdf) => {
-                    entry.pdf_paths = vec![target_pdf];
-                    entries.push(entry);
-                    known_identifiers.insert(identifier);
-                    summary.ingested += 1;
-                    last_processed_label =
-                        Some(relative_label(path, &state.source_path).unwrap_or_default());
-                }
-                Err(err) => {
-                    summary.failed += 1;
+        if !pending_entries.is_empty() {
+            let concurrency = self
+                .manager
+                .config
+                .ingestion
+                .max_parallel_file_copies
+                .max(1) as usize;
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(concurrency)
+                .build()
+                .context("Failed to configure ingestion copy thread pool")?;
+            let completed = pool.install(|| {
+                pending_entries
+                    .into_par_iter()
+                    .map(|pending| {
+                        let result = copy_to_user_layer(&self.base, &pending.path);
+                        (pending, result)
+                    })
+                    .collect::<Vec<_>>()
+            });
+
+            for (mut pending, result) in completed {
+                if known_identifiers.contains(&pending.identifier) {
+                    summary.skipped += 1;
                     summary.issues.push(IngestionIssue::new(
-                        path.clone(),
-                        IngestionIssueReason::CopyFailure,
-                        format!("Unable to copy file: {err}"),
+                        pending.path.clone(),
+                        IngestionIssueReason::DuplicateIdentifier,
+                        "Identifier already exists in this base",
                     ));
+                    continue;
+                }
+                match result {
+                    Ok(target_pdf) => {
+                        pending.entry.pdf_paths = vec![target_pdf];
+                        entries.push(pending.entry);
+                        known_identifiers.insert(pending.identifier);
+                        summary.ingested += 1;
+                        last_processed_label =
+                            Some(relative_label(&pending.path, &state.source_path).unwrap_or_default());
+                    }
+                    Err(err) => {
+                        summary.failed += 1;
+                        summary.issues.push(IngestionIssue::new(
+                            pending.path.clone(),
+                            IngestionIssueReason::CopyFailure,
+                            format!("Unable to copy file: {err}"),
+                        ));
+                    }
                 }
             }
         }
@@ -284,6 +341,12 @@ impl<'a> IngestionRunner<'a> {
 
         Ok(summary)
     }
+}
+
+struct PendingEntry {
+    path: PathBuf,
+    identifier: String,
+    entry: LibraryEntry,
 }
 
 fn enumerate_supported_files(folder: &Path) -> Result<Vec<PathBuf>> {

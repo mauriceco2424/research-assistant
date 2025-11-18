@@ -13,6 +13,11 @@ use std::io::Write;
 use std::path::PathBuf;
 use uuid::Uuid;
 
+/// Maximum acceptable ingestion duration before raising an SLA warning (seconds).
+pub const INGESTION_SLA_SECS: i64 = 5 * 60;
+/// Maximum acceptable report regeneration duration before raising an SLA warning (seconds).
+pub const REPORT_SLA_SECS: i64 = 60;
+
 /// Type of orchestration events that can be logged.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -98,6 +103,7 @@ pub struct OrchestrationLog {
     events_path: PathBuf,
     batches_path: PathBuf,
     figure_batches_path: PathBuf,
+    metrics_path: PathBuf,
 }
 
 impl OrchestrationLog {
@@ -105,10 +111,12 @@ impl OrchestrationLog {
         let events_path = base.ai_layer_path.join("events.jsonl");
         let batches_path = base.ai_layer_path.join("acquisition_batches.jsonl");
         let figure_batches_path = base.ai_layer_path.join("figure_batches.jsonl");
+        let metrics_path = base.ai_layer_path.join("metrics.jsonl");
         Self {
             events_path,
             batches_path,
             figure_batches_path,
+            metrics_path,
         }
     }
 
@@ -268,6 +276,32 @@ impl OrchestrationLog {
             .filter(|event| event.timestamp >= cutoff)
             .collect())
     }
+
+    pub fn record_metric(&self, record: &MetricRecord) -> Result<()> {
+        if let Some(parent) = self.metrics_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.metrics_path)?;
+        file.write_all(serde_json::to_string(record)?.as_bytes())?;
+        file.write_all(b"\n")?;
+        Ok(())
+    }
+
+    pub fn load_metrics(&self) -> Result<Vec<MetricRecord>> {
+        if !self.metrics_path.exists() {
+            return Ok(Vec::new());
+        }
+        let data = fs::read_to_string(&self.metrics_path)?;
+        let mut metrics = Vec::new();
+        for line in data.lines().filter(|l| !l.trim().is_empty()) {
+            let record: MetricRecord = serde_json::from_str(line)?;
+            metrics.push(record);
+        }
+        Ok(metrics)
+    }
 }
 
 /// Append a simple orchestration event helper.
@@ -315,4 +349,42 @@ impl FigureExtractionBatch {
             figure_asset_ids,
         }
     }
+}
+
+/// Metric record emitted by ingestion completion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IngestionMetricsRecord {
+    pub batch_id: Uuid,
+    pub duration_ms: i64,
+    pub ingested: u64,
+    pub skipped: u64,
+    pub failed: u64,
+    pub sla_breached: bool,
+}
+
+/// Metric record emitted when generating reports.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportMetricsRecord {
+    pub duration_ms: i64,
+    pub entry_count: usize,
+    pub figure_count: usize,
+    pub sla_breached: bool,
+}
+
+/// Metric record covering figure extraction success for transparency.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FigureMetricsRecord {
+    pub batch_id: Uuid,
+    pub requested: usize,
+    pub succeeded: usize,
+    pub success_rate: f32,
+}
+
+/// Tagged enum persisted as JSONL in `metrics.jsonl`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "metric", rename_all = "snake_case")]
+pub enum MetricRecord {
+    Ingestion(IngestionMetricsRecord),
+    Reports(ReportMetricsRecord),
+    Figure(FigureMetricsRecord),
 }

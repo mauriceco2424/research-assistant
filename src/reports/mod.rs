@@ -1,10 +1,13 @@
 use crate::acquisition::figure_store::{FigureAssetRecord, FigureStore};
 use crate::bases::{Base, BaseManager, LibraryEntry};
-use crate::orchestration::{log_event, EventType};
+use crate::orchestration::{
+    log_event, EventType, MetricRecord, OrchestrationLog, ReportMetricsRecord, REPORT_SLA_SECS,
+};
 use anyhow::Result;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::PathBuf;
+use std::time::Instant;
 use uuid::Uuid;
 
 /// Category report representation.
@@ -98,10 +101,14 @@ pub fn generate_and_log_reports(
     base: &Base,
     entries: &[LibraryEntry],
 ) -> Result<(PathBuf, PathBuf)> {
+    let started = Instant::now();
     let categories = generate_category_reports(entries);
     let figure_map = load_figures_grouped(base)?;
     let cat_path = write_category_report(base, &categories, &figure_map)?;
     let global_path = write_global_report(base, entries, &figure_map)?;
+    let duration_ms = started.elapsed().as_millis() as i64;
+    let figure_count: usize = figure_map.values().map(|items| items.len()).sum();
+    let sla_breached = duration_ms > REPORT_SLA_SECS * 1000;
     log_event(
         manager,
         base,
@@ -109,8 +116,17 @@ pub fn generate_and_log_reports(
         serde_json::json!({
             "category_report": cat_path,
             "global_report": global_path,
+            "duration_ms": duration_ms,
+            "sla_breached": sla_breached,
         }),
     )?;
+    let log = OrchestrationLog::for_base(base);
+    log.record_metric(&MetricRecord::Reports(ReportMetricsRecord {
+        duration_ms,
+        entry_count: entries.len(),
+        figure_count,
+        sla_breached,
+    }))?;
     Ok((cat_path, global_path))
 }
 

@@ -82,13 +82,13 @@ description: "Task list for paper ingestion, metadata enrichment & figure extrac
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T031 Update quickstart + documentation with ingestion/figure instructions in `specs/001-ingestion-figures/quickstart.md`
-- [ ] T032 Improve logging & metrics (ingestion duration, figure success rate) in `src/orchestration/mod.rs`
-- [ ] T033 Optimize batch processing (configurable concurrency, chunk size) in `src/ingestion/runner.rs`
-- [ ] T044 Instrument ingestion/report duration metrics + SLA alerts in `src/orchestration/mod.rs`
-- [ ] T045 Add load test covering 500+ PDFs per batch in `tests/integration/ingestion_scale.rs`
-- [ ] T046 Add latency test for history command with ≥50 batches in `tests/integration/history_perf.rs`
-- [ ] T047 Measure DOI accuracy + highlight manual review backlog in `src/chat/mod.rs` and `src/ingestion/metadata.rs`
+- [X] T031 Update quickstart + documentation with ingestion/figure instructions in `specs/001-ingestion-figures/quickstart.md`
+- [X] T032 Improve logging & metrics (ingestion duration, figure success rate) in `src/orchestration/mod.rs`
+- [X] T033 Optimize batch processing (configurable concurrency, chunk size) in `src/ingestion/runner.rs`
+- [X] T044 Instrument ingestion/report duration metrics + SLA alerts in `src/orchestration/mod.rs`
+- [X] T045 Add load test covering 500+ PDFs per batch in `tests/integration/ingestion_scale.rs`
+- [X] T046 Add latency test for history command with ≥50 batches in `tests/integration/history_perf.rs`
+- [X] T047 Measure DOI accuracy + highlight manual review backlog in `src/chat/mod.rs` and `src/ingestion/metadata.rs`
 
 ## Dependencies & Execution Order
 

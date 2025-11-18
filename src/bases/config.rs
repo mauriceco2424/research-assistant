@@ -55,9 +55,12 @@ const fn default_batch_limit() -> u32 {
 /// Ingestion-related defaults that affect chat commands and batch runners.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IngestionSettings {
-    /// Number of files processed between checkpoints to support resume.
+    /// Number of files processed between checkpoints/chunks to support resume.
     #[serde(default = "default_checkpoint_interval_files")]
     pub checkpoint_interval_files: u32,
+    /// Maximum number of files copied concurrently by the ingestion runner.
+    #[serde(default = "default_max_parallel_file_copies")]
+    pub max_parallel_file_copies: u32,
     /// Whether remote metadata lookups are allowed during ingestion/enrichment.
     #[serde(default = "default_remote_metadata_allowed")]
     pub remote_metadata_allowed: bool,
@@ -67,6 +70,7 @@ impl Default for IngestionSettings {
     fn default() -> Self {
         Self {
             checkpoint_interval_files: default_checkpoint_interval_files(),
+            max_parallel_file_copies: default_max_parallel_file_copies(),
             remote_metadata_allowed: default_remote_metadata_allowed(),
         }
     }
@@ -74,6 +78,10 @@ impl Default for IngestionSettings {
 
 const fn default_checkpoint_interval_files() -> u32 {
     25
+}
+
+const fn default_max_parallel_file_copies() -> u32 {
+    4
 }
 
 const fn default_remote_metadata_allowed() -> bool {
