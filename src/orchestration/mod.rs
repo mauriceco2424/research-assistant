@@ -31,6 +31,8 @@ pub enum EventType {
     FigureExtractionCompleted,
     FigureExtractionUndo,
     MetadataRefreshRequested,
+    MetadataRefreshApplied,
+    MetadataRefreshUndo,
     ReportsGenerated,
 }
 

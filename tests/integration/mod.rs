@@ -29,3 +29,7 @@ impl IntegrationHarness {
 
 mod metadata_only;
 mod ingestion_progress;
+mod metadata_consent;
+mod metadata_offline;
+mod metadata_multilang;
+mod metadata_refresh;

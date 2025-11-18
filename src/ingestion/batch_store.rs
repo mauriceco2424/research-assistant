@@ -1,14 +1,13 @@
 use crate::bases::Base;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Status lifecycle for ingestion batches.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum IngestionBatchStatus {
     Pending,
@@ -19,7 +18,7 @@ pub enum IngestionBatchStatus {
 }
 
 /// JSONL friendly record describing an ingestion batch.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IngestionBatchState {
     pub batch_id: Uuid,
     pub base_id: Uuid,

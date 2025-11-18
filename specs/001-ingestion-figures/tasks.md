@@ -38,22 +38,22 @@ description: "Task list for paper ingestion, metadata enrichment & figure extrac
 - [X] T013 [US1] Wire chat handlers for `ingest start/status/pause/resume` in `src/chat/mod.rs`
 - [X] T014 [US1] Add integration test `tests/integration/ingestion_progress.rs`
 
-## Phase 4: User Story 2 – Metadata Normalization & Dedup (Priority: P1)
+## Phase 4: User Story 2 - Metadata Normalization & Dedup (Priority: P1)
 
 **Goal**: Normalize metadata, detect duplicates, and support per-paper refresh.
 **Independent Test**: Run `metadata refresh` on mixed-quality papers, resolve dedup prompts, confirm AI-layer metadata updates.
 
-- [ ] T015 [US2] Implement metadata extraction/enrichment pipeline in `src/ingestion/metadata.rs`
-- [ ] T016 [US2] Implement dedup detection & merge logic in `src/ingestion/dedup.rs`
-- [ ] T017 [US2] Add chat command for metadata refresh (batch + single paper) in `src/chat/mod.rs`
-- [ ] T036 [US2] Prompt + record consent manifests for metadata refresh commands in `src/chat/mod.rs` and `src/orchestration/consent.rs`
-- [ ] T037 [US2] Extend undo logic to cover metadata lookup actions in `src/orchestration/mod.rs`
-- [ ] T038 [US2] Implement offline-only heuristics + chat messaging when remote lookups disabled in `src/ingestion/metadata.rs` and `src/chat/mod.rs`
-- [ ] T039 [US2] Add language detection + RTL-safe normalization handling in `src/ingestion/metadata.rs`
-- [ ] T040 [US2] Implement chat-guided dedup review flow (accept/reject/merge) in `src/chat/mod.rs` and `src/ingestion/dedup.rs`
-- [ ] T018 [US2] Persist metadata change diffs and provenance in `src/bases/mod.rs`
-- [ ] T019 [US2] Add integration test `tests/integration/metadata_refresh.rs`
-- [ ] T041 [US2] Integration tests for consent gating, offline fallback, and multilingual dedup in `tests/integration/metadata_consent.rs`, `metadata_offline.rs`, `metadata_multilang.rs`
+- [X] T015 [US2] Implement metadata extraction/enrichment pipeline in `src/ingestion/metadata.rs`
+- [X] T016 [US2] Implement dedup detection & merge logic in `src/ingestion/dedup.rs`
+- [X] T017 [US2] Add chat command for metadata refresh (batch + single paper) in `src/chat/mod.rs`
+- [X] T036 [US2] Prompt + record consent manifests for metadata refresh commands in `src/chat/mod.rs` and `src/orchestration/consent.rs`
+- [X] T037 [US2] Extend undo logic to cover metadata lookup actions in `src/orchestration/mod.rs`
+- [X] T038 [US2] Implement offline-only heuristics + chat messaging when remote lookups disabled in `src/ingestion/metadata.rs` and `src/chat/mod.rs`
+- [X] T039 [US2] Add language detection + RTL-safe normalization handling in `src/ingestion/metadata.rs`
+- [X] T040 [US2] Implement chat-guided dedup review flow (accept/reject/merge) in `src/chat/mod.rs` and `src/ingestion/dedup.rs`
+- [X] T018 [US2] Persist metadata change diffs and provenance in `src/bases/mod.rs`
+- [X] T019 [US2] Add integration test `tests/integration/metadata_refresh.rs`
+- [X] T041 [US2] Integration tests for consent gating, offline fallback, and multilingual dedup in `tests/integration/metadata_consent.rs`, `metadata_offline.rs`, `metadata_multilang.rs`
 
 ## Phase 5: User Story 3 – Consent-Driven Figure Extraction (Priority: P2)
 

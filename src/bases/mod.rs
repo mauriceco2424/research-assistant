@@ -175,6 +175,10 @@ impl BaseManager {
         base.ai_layer_path.join("metadata_records.json")
     }
 
+    fn metadata_changes_path(&self, base: &Base) -> PathBuf {
+        base.ai_layer_path.join("metadata_changes.jsonl")
+    }
+
     pub fn load_library_entries(&self, base: &Base) -> Result<Vec<LibraryEntry>> {
         let path = self.base_library_path(base);
         if path.exists() {
@@ -211,6 +215,12 @@ impl BaseManager {
         }
         fs::write(path, serde_json::to_vec_pretty(records)?)?;
         Ok(())
+    }
+
+    pub fn remove_metadata_records(&self, base: &Base, ids: &[Uuid]) -> Result<()> {
+        let mut records = self.load_metadata_records(base)?;
+        records.retain(|record| !ids.contains(&record.record_id));
+        self.save_metadata_records(base, &records)
     }
 
     pub fn upsert_metadata_record(
@@ -253,6 +263,87 @@ impl BaseManager {
         records.push(record.clone());
         self.save_metadata_records(base, &records)?;
         Ok(record)
+    }
+
+    pub fn record_metadata_change_batch(
+        &self,
+        base: &Base,
+        batch: &MetadataChangeBatch,
+    ) -> Result<()> {
+        let path = self.metadata_changes_path(base);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)?;
+        file.write_all(serde_json::to_string(batch)?.as_bytes())?;
+        file.write_all(b"\n")?;
+        Ok(())
+    }
+
+    pub fn undo_last_metadata_change_batch(
+        &self,
+        base: &Base,
+    ) -> Result<Option<MetadataChangeBatch>> {
+        let path = self.metadata_changes_path(base);
+        if !path.exists() {
+            return Ok(None);
+        }
+        let data = fs::read_to_string(&path)?;
+        let mut batches = Vec::new();
+        for line in data.lines().filter(|l| !l.trim().is_empty()) {
+            let batch: MetadataChangeBatch = serde_json::from_str(line)?;
+            batches.push(batch);
+        }
+        if let Some(batch) = batches.pop() {
+            self.persist_metadata_change_batches(base, &batches)?;
+            self.apply_metadata_change_batch(base, &batch, false)?;
+            Ok(Some(batch))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn persist_metadata_change_batches(
+        &self,
+        base: &Base,
+        batches: &[MetadataChangeBatch],
+    ) -> Result<()> {
+        let path = self.metadata_changes_path(base);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut file = fs::File::create(&path)?;
+        for batch in batches {
+            file.write_all(serde_json::to_string(batch)?.as_bytes())?;
+            file.write_all(b"\n")?;
+        }
+        Ok(())
+    }
+
+    pub fn apply_metadata_change_batch(
+        &self,
+        base: &Base,
+        batch: &MetadataChangeBatch,
+        apply_after: bool,
+    ) -> Result<()> {
+        for entry in &batch.changes {
+            match (apply_after, &entry.after, &entry.before) {
+                (true, Some(after), _) => {
+                    self.upsert_metadata_record(base, after.clone())?;
+                }
+                (false, _, Some(before)) => {
+                    self.upsert_metadata_record(base, before.clone())?;
+                }
+                (false, _, None) => {
+                    self.remove_metadata_records(base, &[entry.record_id])?;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     pub fn remove_entries_by_ids(&self, base: &Base, ids: &[Uuid]) -> Result<Vec<LibraryEntry>> {
@@ -326,6 +417,8 @@ pub struct MetadataRecord {
     pub provenance: Option<String>,
     pub missing_pdf: bool,
     pub missing_figures: bool,
+    #[serde(default)]
+    pub script_direction: Option<String>,
     pub last_updated: DateTime<Utc>,
 }
 
@@ -347,6 +440,7 @@ impl MetadataRecord {
             provenance: Some("metadata_only_ingestion".into()),
             missing_pdf: true,
             missing_figures: true,
+            script_direction: None,
             last_updated: Utc::now(),
         }
     }
@@ -366,6 +460,7 @@ impl MetadataRecord {
         self.provenance = source.provenance.clone();
         self.missing_pdf = source.missing_pdf;
         self.missing_figures = source.missing_figures;
+        self.script_direction = source.script_direction.clone();
         self.last_updated = Utc::now();
     }
 }
@@ -378,4 +473,20 @@ pub enum MetadataDedupStatus {
     Duplicate,
     Merged,
     MetadataOnly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataChangeEntry {
+    pub change_id: Uuid,
+    pub record_id: Uuid,
+    pub before: Option<MetadataRecord>,
+    pub after: Option<MetadataRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataChangeBatch {
+    pub batch_id: Uuid,
+    pub approval_text: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub changes: Vec<MetadataChangeEntry>,
 }

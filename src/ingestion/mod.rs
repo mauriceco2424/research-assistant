@@ -1,5 +1,7 @@
 pub mod batch_store;
+pub mod dedup;
 pub mod error;
+pub mod metadata;
 pub mod runner;
 pub mod status;
 
@@ -14,7 +16,11 @@ use uuid::Uuid;
 use walkdir;
 
 pub use batch_store::{IngestionBatchState, IngestionBatchStatus, IngestionBatchStore};
+pub use dedup::{
+    detect_duplicate_groups, format_duplicate_group, merge_duplicate_group, DuplicateGroup,
+};
 pub use error::{IngestionIssue, IngestionIssueReason};
+pub use metadata::{refresh_metadata, MetadataRefreshRequest, MetadataRefreshResult};
 pub use runner::{IngestionOutcome, IngestionRunner};
 pub use status::format_batch_status;
 

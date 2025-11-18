@@ -3,8 +3,14 @@ use crate::acquisition::{
     undo_last_batch, CandidatePaper, InterviewAnswers,
 };
 use crate::bases::{Base, BaseManager};
-use crate::ingestion::{format_batch_status, ingest_local_pdfs, IngestionRunner};
-use crate::orchestration::{log_event, EventType, OrchestrationLog};
+use crate::ingestion::{
+    detect_duplicate_groups, format_batch_status, format_duplicate_group, ingest_local_pdfs,
+    merge_duplicate_group, refresh_metadata, IngestionRunner, MetadataRefreshRequest,
+};
+use crate::orchestration::{
+    log_event, require_remote_operation_consent, ConsentOperation, ConsentScope, EventType,
+    OrchestrationLog,
+};
 use crate::reports::generate_and_log_reports;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -89,16 +95,93 @@ impl ChatSession {
         Ok(outcome.describe_for_chat())
     }
 
-    /// Placeholder metadata refresh command wiring that keeps chat-first UX alive.
-    pub fn metadata_refresh(&mut self, paper_ids: Option<Vec<Uuid>>) -> Result<String> {
-        let scope = match paper_ids {
-            Some(ref ids) if !ids.is_empty() => format!("{} papers", ids.len()),
-            _ => "entire Base".to_string(),
+    pub fn metadata_refresh(
+        &mut self,
+        paper_ids: Option<Vec<Uuid>>,
+        approval_text: Option<&str>,
+    ) -> Result<String> {
+        let base = self.active_base()?;
+        let remote_allowed = self.manager.config.ingestion.remote_metadata_allowed;
+        let allow_remote = remote_allowed && approval_text.is_some();
+        if remote_allowed && approval_text.is_none() {
+            return Err(anyhow::anyhow!(
+                "Remote metadata lookup requires explicit approval text."
+            ));
+        }
+        if allow_remote {
+            let scope = ConsentScope {
+                batch_id: None,
+                paper_ids: paper_ids.clone().unwrap_or_default(),
+            };
+            require_remote_operation_consent(
+                &self.manager,
+                &base,
+                ConsentOperation::MetadataLookup,
+                approval_text.unwrap(),
+                scope,
+                serde_json::json!({ "count": paper_ids.as_ref().map(|v| v.len()).unwrap_or(0) }),
+            )?;
+        }
+        let request = MetadataRefreshRequest {
+            paper_ids,
+            allow_remote,
+            approval_text: approval_text.map(|s| s.to_string()),
         };
+        let outcome = refresh_metadata(&self.manager, &base, request)?;
+        let mut response = format!(
+            "Metadata refresh batch {} updated {} records.",
+            outcome.batch_id,
+            outcome.updated_records.len()
+        );
+        if outcome.offline_mode {
+            response.push_str(" Remote lookups disabled; used offline heuristics.");
+        } else {
+            response.push_str(" Remote lookups approved and applied.");
+        }
+        if !outcome.duplicates.is_empty() {
+            response.push_str(&format!(
+                " Found {} duplicate DOI groups. Use metadata_list_duplicates for details.",
+                outcome.duplicates.len()
+            ));
+        }
+        Ok(response)
+    }
+
+    pub fn metadata_list_duplicates(&mut self) -> Result<Vec<String>> {
+        let base = self.active_base()?;
+        let records = self.manager.load_metadata_records(&base)?;
+        Ok(detect_duplicate_groups(&records)
+            .into_iter()
+            .map(|group| format_duplicate_group(&group))
+            .collect())
+    }
+
+    pub fn metadata_merge_duplicate(&mut self, doi: &str, keep_record_id: Uuid) -> Result<String> {
+        let base = self.active_base()?;
+        let removed = merge_duplicate_group(&self.manager, &base, doi, keep_record_id)?;
         Ok(format!(
-            "Metadata refresh stub queued for {}. Enrichment pipeline will replace this once implemented.",
-            scope
+            "Merged duplicate DOI {} by keeping {} (removed {}).",
+            doi, keep_record_id, removed
         ))
+    }
+
+    pub fn undo_last_metadata_refresh(&mut self) -> Result<String> {
+        let base = self.active_base()?;
+        if let Some(batch) = self.manager.undo_last_metadata_change_batch(&base)? {
+            log_event(
+                &self.manager,
+                &base,
+                EventType::MetadataRefreshUndo,
+                serde_json::json!({ "undo_batch": batch.batch_id }),
+            )?;
+            Ok(format!(
+                "Reverted metadata batch {} affecting {} records.",
+                batch.batch_id,
+                batch.changes.len()
+            ))
+        } else {
+            Ok("No metadata refresh batches to undo.".into())
+        }
     }
 
     /// Placeholder consent-driven figure extraction command.
