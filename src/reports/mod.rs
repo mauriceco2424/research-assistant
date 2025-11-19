@@ -1,4 +1,10 @@
+pub mod build_service;
 pub mod categorization;
+pub mod config_store;
+pub mod consent_registry;
+pub mod manifest;
+pub mod share_builder;
+pub mod visualizations;
 
 use crate::acquisition::figure_store::{FigureAssetRecord, FigureStore};
 use crate::bases::{Base, BaseManager, CategoryAssignmentsIndex, CategoryStore, LibraryEntry};

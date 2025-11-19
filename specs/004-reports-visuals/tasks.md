@@ -1,6 +1,6 @@
 # Tasks: Reports & Visualizations
 
-**Input**: Design documents from `/specs/002-reports-visuals/`
+**Input**: Design documents from `/specs/004-reports-visuals/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
 **Tests**: Not explicitly requested; verification occurs via manual commands described in quickstart.md and orchestration logs.
@@ -17,9 +17,9 @@
 
 **Purpose**: Ensure the repo has the dependencies and scaffolding required for subsequent phases.
 
-- [ ] T001 Update Rust dependencies (`Cargo.toml`) to include `zip`, `walkdir`, `sha2`, and `serde_with` for report manifests, hashing, bundling, and filesystem traversal.
-- [ ] T002 Create `src/reports/mod.rs` exporting placeholder modules (`config_store`, `manifest`, `build_service`, `share_builder`, `consent_registry`, `visualizations`).
-- [ ] T003 [P] Add TypeScript entry point `src/chat/commands/reports.ts` that registers stub handlers for `reports regenerate/configure/share` with the chat router.
+- [X] T001 Update Rust dependencies (`Cargo.toml`) to include `zip`, `walkdir`, `sha2`, and `serde_with` for report manifests, hashing, bundling, and filesystem traversal.
+- [X] T002 Create `src/reports/mod.rs` exporting placeholder modules (`config_store`, `manifest`, `build_service`, `share_builder`, `consent_registry`, `visualizations`).
+- [X] T003 [P] Add TypeScript entry point `src/chat/commands/reports.ts` that registers stub handlers for `reports regenerate/configure/share` with the chat router.
 
 ---
 
@@ -27,10 +27,10 @@
 
 **Purpose**: Core infrastructure that every story depends on; must complete before user story work starts.
 
-- [ ] T004 Implement Base-level configuration persistence (`src/reports/config_store.rs`) that reads/writes JSON defaults (figures/viz toggles, excluded assets, consent TTL) inside the AI-layer directory.
-- [ ] T005 [P] Define serializable data structures for `ReportBuildRequest`, `ReportManifest`, and `ShareBundleDescriptor` in `src/reports/manifest.rs`, including hashing helpers.
-- [ ] T006 [P] Build consent registry (`src/reports/consent_registry.rs`) that loads/validates `ConsentManifest` files, enforces expiry, and exposes lookup APIs for report jobs.
-- [ ] T007 Implement orchestration progress helper (`src/orchestration/report_progress.rs`) that streams <=5s interval updates and wraps event logging for report jobs.
+- [X] T004 Implement Base-level configuration persistence (`src/reports/config_store.rs`) that reads/writes JSON defaults (figures/viz toggles, excluded assets, consent TTL) inside the AI-layer directory.
+- [X] T005 [P] Define serializable data structures for `ReportBuildRequest`, `ReportManifest`, and `ShareBundleDescriptor` in `src/reports/manifest.rs`, including hashing helpers.
+- [X] T006 [P] Build consent registry (`src/reports/consent_registry.rs`) that loads/validates `ConsentManifest` files, enforces expiry, and exposes lookup APIs for report jobs.
+- [X] T007 Implement orchestration progress helper (`src/orchestration/report_progress.rs`) that streams <=5s interval updates and wraps event logging for report jobs.
 
 **Checkpoint**: Foundational module scaffolding complete; user story phases can proceed in parallel while sharing these utilities.
 
@@ -88,7 +88,7 @@
 - [ ] T023 [P] [US3] Add provenance summary writer `src/reports/share_manifest.rs` that stores `ShareBundleDescriptor` next to bundles and links back to `ReportManifest`.
 - [ ] T024 [US3] Wire `reports share` chat/backend command handling in `src/chat/commands/reports.ts` and `src/reports/share_service.rs`, including overwrite confirmations and orchestration logging.
 - [ ] T025 [US3] Ensure bundle creation logs appear in chat + AI-layer audit trail by extending `src/chat/handlers/report_updates.rs` and `src/reports/manifest.rs` with share metadata.
-- [ ] T026 [US3] Script manifest replay verification in `scripts/verify_manifest_repro.sh` (or an equivalent Rust test) proving `ReportManifest` inputs reproduce byte-identical HTML and document the steps in `specs/002-reports-visuals/quickstart.md`.
+- [ ] T026 [US3] Script manifest replay verification in `scripts/verify_manifest_repro.sh` (or an equivalent Rust test) proving `ReportManifest` inputs reproduce byte-identical HTML and document the steps in `specs/004-reports-visuals/quickstart.md`.
 
 **Checkpoint**: Bundling workflow runs independently, producing shareable archives with verifiable provenance without touching unrelated reports.
 
@@ -98,9 +98,9 @@
 
 **Purpose**: Final pass for documentation, resilience, and manual validation across stories.
 
-- [ ] T027 [P] Update `specs/002-reports-visuals/quickstart.md` with final CLI options, consent prompts, bundle instructions, and manifest replay guidance.
-- [ ] T028 Run end-to-end dry runs following quickstart commands, ensuring orchestration logs + manifests align; document findings in `specs/002-reports-visuals/research.md` addendum.
-- [ ] T029 Instrument orchestration analytics (e.g., tagging chat/progress logs for satisfaction review) and summarize SC-005 monitoring procedures in `specs/002-reports-visuals/research.md`.
+- [ ] T027 [P] Update `specs/004-reports-visuals/quickstart.md` with final CLI options, consent prompts, bundle instructions, and manifest replay guidance.
+- [ ] T028 Run end-to-end dry runs following quickstart commands, ensuring orchestration logs + manifests align; document findings in `specs/004-reports-visuals/research.md` addendum.
+- [ ] T029 Instrument orchestration analytics (e.g., tagging chat/progress logs for satisfaction review) and summarize SC-005 monitoring procedures in `specs/004-reports-visuals/research.md`.
 
 ---
 

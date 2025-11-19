@@ -1,6 +1,6 @@
 # Implementation Plan: Reports & Visualizations
 
-**Branch**: `002-reports-visuals` | **Date**: 2025-11-19 | **Spec**: [spec.md](spec.md)
+**Branch**: `004-reports-visuals` | **Date**: 2025-11-19 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.

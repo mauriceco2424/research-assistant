@@ -1,8 +1,10 @@
 pub mod consent;
+pub mod report_progress;
 
 pub use consent::{
     require_remote_operation_consent, ConsentManifest, ConsentOperation, ConsentScope, ConsentStore,
 };
+pub use report_progress::ReportProgressTracker;
 
 use crate::bases::{Base, BaseManager};
 use anyhow::Result;
