@@ -38,6 +38,7 @@ impl Default for ConsentScope {
 pub enum ConsentOperation {
     MetadataLookup,
     FigureExtraction,
+    CategoryNarrativeSuggest,
 }
 
 /// File-backed store for consent manifests scoped to a Base.
@@ -105,6 +106,13 @@ pub fn require_remote_operation_consent(
             if !manager.config.acquisition.remote_allowed {
                 anyhow::bail!(
                     "Remote figure extraction is disabled for this install. Enable it in config to continue."
+                );
+            }
+        }
+        ConsentOperation::CategoryNarrativeSuggest => {
+            if !manager.config.acquisition.remote_allowed {
+                anyhow::bail!(
+                    "Remote narrative assistance is disabled for this install. Enable remote access before requesting AI summaries."
                 );
             }
         }

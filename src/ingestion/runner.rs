@@ -193,7 +193,7 @@ impl<'a> IngestionRunner<'a> {
         Ok(IngestionOutcome { state, summary })
     }
 
-fn process_chunk(
+    fn process_chunk(
         &self,
         state: &mut IngestionBatchState,
         files: &[PathBuf],
@@ -305,8 +305,9 @@ fn process_chunk(
                         entries.push(pending.entry);
                         known_identifiers.insert(pending.identifier);
                         summary.ingested += 1;
-                        last_processed_label =
-                            Some(relative_label(&pending.path, &state.source_path).unwrap_or_default());
+                        last_processed_label = Some(
+                            relative_label(&pending.path, &state.source_path).unwrap_or_default(),
+                        );
                     }
                     Err(err) => {
                         summary.failed += 1;

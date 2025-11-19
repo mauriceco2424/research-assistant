@@ -39,6 +39,9 @@ pub enum EventType {
     MetadataRefreshApplied,
     MetadataRefreshUndo,
     ReportsGenerated,
+    CategoryProposalsGenerated,
+    CategoryProposalsApplied,
+    CategoryEdit,
 }
 
 /// General-purpose orchestration event stored as JSONL.
@@ -302,6 +305,42 @@ impl OrchestrationLog {
         }
         Ok(metrics)
     }
+
+    fn append_structured_event<T: Serialize>(
+        &self,
+        base: &Base,
+        event_type: EventType,
+        details: T,
+    ) -> Result<()> {
+        let event = OrchestrationEvent {
+            event_id: Uuid::new_v4(),
+            base_id: base.id,
+            event_type,
+            timestamp: Utc::now(),
+            details: serde_json::to_value(details)?,
+        };
+        self.append_event(&event)
+    }
+
+    pub fn log_category_proposals_generated(
+        &self,
+        base: &Base,
+        details: CategoryProposalEvent,
+    ) -> Result<()> {
+        self.append_structured_event(base, EventType::CategoryProposalsGenerated, details)
+    }
+
+    pub fn log_category_proposals_applied(
+        &self,
+        base: &Base,
+        details: CategoryProposalEvent,
+    ) -> Result<()> {
+        self.append_structured_event(base, EventType::CategoryProposalsApplied, details)
+    }
+
+    pub fn log_category_edit(&self, base: &Base, details: CategoryEditEventDetails) -> Result<()> {
+        self.append_structured_event(base, EventType::CategoryEdit, details)
+    }
 }
 
 /// Append a simple orchestration event helper.
@@ -387,4 +426,38 @@ pub enum MetricRecord {
     Ingestion(IngestionMetricsRecord),
     Reports(ReportMetricsRecord),
     Figure(FigureMetricsRecord),
+}
+
+/// Structured payload describing a category proposal batch or acceptance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryProposalEvent {
+    pub batch_id: Uuid,
+    pub proposed_count: usize,
+    pub accepted_count: usize,
+    pub rejected_count: usize,
+    pub duration_ms: Option<i64>,
+    pub consent_manifest_id: Option<Uuid>,
+}
+
+/// Structured payload for category edits (rename, merge, etc.).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryEditEventDetails {
+    pub edit_type: CategoryEditType,
+    pub category_ids: Vec<Uuid>,
+    pub snapshot_id: Option<Uuid>,
+    #[serde(default)]
+    pub details: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CategoryEditType {
+    ProposeAccept,
+    Rename,
+    Merge,
+    Split,
+    Move,
+    NarrativeEdit,
+    PinToggle,
+    Undo,
 }

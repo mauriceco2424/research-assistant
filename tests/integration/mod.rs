@@ -7,6 +7,8 @@ pub struct IntegrationHarness {
     workspace: TempDir,
 }
 
+const CONTRACT_SPECS: &[&str] = &["specs/003-category-editing/contracts/categories.yaml"];
+
 impl IntegrationHarness {
     pub fn new() -> Self {
         let workspace = TempDir::new().expect("failed to create temp workspace");
@@ -38,3 +40,14 @@ mod metadata_refresh;
 mod figure_extraction;
 mod history_undo;
 mod figure_reprocess_consent;
+mod categories_proposals;
+
+#[test]
+fn contracts_exist() {
+    for path in CONTRACT_SPECS {
+        assert!(
+            Path::new(path).exists(),
+            "Expected contract spec to exist: {path}"
+        );
+    }
+}

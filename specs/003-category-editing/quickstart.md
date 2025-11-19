@@ -1,9 +1,19 @@
-# Quickstart – Categorization & Editing Workflows
+# Quickstart - Categorization & Editing Workflows
 
 **Feature**: `003-category-editing`
 
+## 0. Configure Categorization Defaults
+1. Open `config/config.toml` inside your ResearchBase workspace (same directory that holds `AI/` and `User/`).
+2. Add or edit the `[categorization]` table:
+   ```toml
+   [categorization]
+   max_proposals = 5        # limit proposal cards per run
+   timeout_ms    = 120000   # 2-minute clustering watchdog
+   ```
+3. Restart the app or re-run the CLI so the new limits apply to `categories propose`.
+
 ## 1. Generate Category Proposals
-1. Ensure ingestion/metadata flows (Specs 001–002) are complete for the active Base.
+1. Ensure ingestion/metadata flows (Specs 001-002) are complete for the active Base.
 2. In chat, run `categories propose` (optionally `--remote-summary on` to request AI narrative drafts).  
 3. Review the proposal cards (name, confidence, sample papers) and accept, rename, or reject each one. Accepted categories are stored immediately and reports regenerate.
 
@@ -25,4 +35,18 @@
 ## 5. Undo & Audit
 1. Use `category undo` to revert the most recent edit batch (rename, merge, narrative, move).  
 2. Chat confirms the rollback and the orchestration history records who performed the action and which snapshot was restored.  
-3. Regenerated HTML reports appear once the undo completes (<60 seconds for Bases ≤1,000 papers).
+3. Regenerated HTML reports appear once the undo completes (<60 seconds for Bases ~1,000 papers).
+
+## Storage Layout Reference
+- AI-layer category artifacts live under `AI/<base-id>/categories/`.
+- Subdirectories:
+  - `definitions/` – accepted category definitions + narratives.
+  - `assignments/` – paper-to-category links, refreshed after merges/splits.
+  - `snapshots/` – undo checkpoints captured before each edit.
+  - `proposals/` – latest proposal preview batches (confidence + sample papers).
+- The structure is created automatically when a Base is provisioned; delete-with-care because undo/report regeneration depend on these files.
+
+
+
+
+

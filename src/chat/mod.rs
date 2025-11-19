@@ -2,20 +2,24 @@ use crate::acquisition::{
     discover_candidates, generate_candidates_from_interview, run_acquisition_batch,
     run_figure_extraction, undo_last_batch, CandidatePaper, InterviewAnswers,
 };
-use crate::bases::{Base, BaseManager};
+use crate::bases::{
+    category_slug, AssignmentSource, AssignmentStatus, Base, BaseManager, CategoryAssignment,
+    CategoryAssignmentsIndex, CategoryOrigin, CategoryProposalStore, CategoryRecord, CategoryStore,
+};
 use crate::ingestion::{
     detect_duplicate_groups, format_batch_status, format_duplicate_group, ingest_local_pdfs,
     merge_duplicate_group, refresh_metadata, IngestionRunner, MetadataRefreshRequest,
 };
 use crate::orchestration::{
-    log_event, require_remote_operation_consent, ConsentOperation, ConsentScope, EventType,
-    OrchestrationLog,
+    log_event, require_remote_operation_consent, CategoryProposalEvent, ConsentOperation,
+    ConsentScope, EventType, OrchestrationLog,
 };
-use crate::reports::generate_and_log_reports;
+use crate::reports::{categorization::proposals::CategoryProposalWorker, generate_and_log_reports};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::path::Path;
+use std::time::Instant;
 use uuid::Uuid;
 
 /// Lightweight facade that emulates chat commands.
@@ -424,6 +428,168 @@ impl ChatSession {
         Ok(format!(
             "Reprocessed metadata for {} (batch {}, remote={}).",
             paper_id, outcome.batch_id, outcome.used_remote
+        ))
+    }
+
+    pub fn categories_propose(&mut self, remote_summary_approval: Option<&str>) -> Result<String> {
+        let base = self.active_base()?;
+        let entries = self.manager.load_library_entries(&base)?;
+        if entries.len() < 2 {
+            anyhow::bail!("Need at least two papers in the Base before proposing categories.");
+        }
+        let mut consent_manifest_id = None;
+        if let Some(approval) = remote_summary_approval {
+            if approval.trim().is_empty() {
+                anyhow::bail!("Remote narrative assistance requires approval text.");
+            }
+            let scope = ConsentScope {
+                batch_id: None,
+                paper_ids: Vec::new(),
+            };
+            let manifest = require_remote_operation_consent(
+                &self.manager,
+                &base,
+                ConsentOperation::CategoryNarrativeSuggest,
+                approval,
+                scope,
+                serde_json::json!({ "command": "categories_propose" }),
+            )?;
+            consent_manifest_id = Some(manifest.manifest_id);
+        }
+
+        let categorization_cfg = self.manager.config.categorization.clone();
+        let worker = CategoryProposalWorker::new(
+            categorization_cfg.max_proposals as usize,
+            categorization_cfg.timeout_ms,
+        );
+        let started = Instant::now();
+        let proposals = worker.generate(&base, &entries)?;
+        if proposals.is_empty() {
+            return Ok("No cohesive clusters discovered yet. Add more papers or adjust metadata before retrying.".into());
+        }
+        let duration_ms = started.elapsed().as_millis() as i64;
+        let store = CategoryProposalStore::new(&base)?;
+        let batch = store.save_batch(proposals, Some(duration_ms))?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_proposals_generated(
+            &base,
+            CategoryProposalEvent {
+                batch_id: batch.batch_id,
+                proposed_count: batch.proposals.len(),
+                accepted_count: 0,
+                rejected_count: 0,
+                duration_ms: batch.duration_ms,
+                consent_manifest_id,
+            },
+        )?;
+        let mut response = format!(
+            "Generated {} category proposals in {} ms (batch {}).",
+            batch.proposals.len(),
+            duration_ms,
+            batch.batch_id
+        );
+        for proposal in batch
+            .proposals
+            .iter()
+            .take(categorization_cfg.max_proposals as usize)
+        {
+            response.push_str(&format!(
+                "\n- {} ({} papers, confidence {:.2})",
+                proposal.definition.name,
+                proposal.member_entry_ids.len(),
+                proposal.definition.confidence.unwrap_or(0.0)
+            ));
+        }
+        Ok(response)
+    }
+
+    pub fn categories_apply(
+        &mut self,
+        mut accepted_ids: Vec<Uuid>,
+        renames: HashMap<Uuid, String>,
+        rejected_ids: Vec<Uuid>,
+    ) -> Result<String> {
+        let base = self.active_base()?;
+        let store = CategoryProposalStore::new(&base)?;
+        let batch = store
+            .latest_batch()?
+            .context("No proposal batch found. Run `categories propose` first.")?;
+
+        for id in renames.keys() {
+            if !accepted_ids.contains(id) {
+                accepted_ids.push(*id);
+            }
+        }
+        if accepted_ids.is_empty() {
+            anyhow::bail!("Provide at least one proposal id to apply or rename.");
+        }
+
+        let mut proposal_map: HashMap<Uuid, _> = batch
+            .proposals
+            .iter()
+            .map(|p| (p.proposal_id, p.clone()))
+            .collect();
+        let mut applied = Vec::new();
+        for proposal_id in accepted_ids {
+            let mut proposal = proposal_map
+                .remove(&proposal_id)
+                .with_context(|| format!("Proposal {} not found in latest batch.", proposal_id))?;
+            if let Some(new_name) = renames.get(&proposal_id) {
+                proposal.definition.name = new_name.clone();
+                proposal.definition.slug = category_slug(new_name);
+            }
+            proposal.definition.origin = CategoryOrigin::Proposed;
+            proposal.definition.updated_at = Utc::now();
+            applied.push(proposal);
+        }
+        if applied.is_empty() {
+            anyhow::bail!("No matching proposals were applied.");
+        }
+
+        let category_store = CategoryStore::new(&base)?;
+        let assignments_index = CategoryAssignmentsIndex::new(&base)?;
+        for proposal in &applied {
+            let record =
+                CategoryRecord::new(proposal.definition.clone(), proposal.narrative.clone());
+            category_store.save(&record)?;
+            if !proposal.member_entry_ids.is_empty() {
+                let assignments: Vec<CategoryAssignment> = proposal
+                    .member_entry_ids
+                    .iter()
+                    .map(|paper_id| CategoryAssignment {
+                        assignment_id: Uuid::new_v4(),
+                        category_id: proposal.definition.category_id,
+                        paper_id: *paper_id,
+                        source: AssignmentSource::Auto,
+                        confidence: proposal.definition.confidence.unwrap_or(0.6),
+                        status: AssignmentStatus::PendingReview,
+                        last_reviewed_at: None,
+                    })
+                    .collect();
+                assignments_index
+                    .replace_category(&proposal.definition.category_id, &assignments)?;
+            }
+        }
+
+        let entries = self.manager.load_library_entries(&base)?;
+        generate_and_log_reports(&self.manager, &base, &entries)?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_proposals_applied(
+            &base,
+            CategoryProposalEvent {
+                batch_id: batch.batch_id,
+                proposed_count: batch.proposals.len(),
+                accepted_count: applied.len(),
+                rejected_count: rejected_ids.len(),
+                duration_ms: batch.duration_ms,
+                consent_manifest_id: None,
+            },
+        )?;
+
+        Ok(format!(
+            "Applied {} proposals from batch {}. Reports regenerated.",
+            applied.len(),
+            batch.batch_id
         ))
     }
 }

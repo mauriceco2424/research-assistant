@@ -22,6 +22,9 @@ pub struct AppConfig {
     /// Ingestion defaults (checkpoint cadence, remote lookup toggles).
     #[serde(default)]
     pub ingestion: IngestionSettings,
+    /// Categorization proposal knobs (cluster limits, worker timeout).
+    #[serde(default)]
+    pub categorization: CategorizationSettings,
 }
 
 /// Acquisition-related preferences tied to the local install.
@@ -86,6 +89,34 @@ const fn default_max_parallel_file_copies() -> u32 {
 
 const fn default_remote_metadata_allowed() -> bool {
     false
+}
+
+/// Categorization proposal tuning parameters.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategorizationSettings {
+    /// Maximum number of category proposals returned per run.
+    #[serde(default = "default_max_proposals")]
+    pub max_proposals: u32,
+    /// Wall-clock timeout (ms) for the proposal worker.
+    #[serde(default = "default_proposal_timeout_ms")]
+    pub timeout_ms: u64,
+}
+
+impl Default for CategorizationSettings {
+    fn default() -> Self {
+        Self {
+            max_proposals: default_max_proposals(),
+            timeout_ms: default_proposal_timeout_ms(),
+        }
+    }
+}
+
+const fn default_max_proposals() -> u32 {
+    5
+}
+
+const fn default_proposal_timeout_ms() -> u64 {
+    120_000
 }
 
 /// Standard relative path to the config file (resolved per OS at runtime).

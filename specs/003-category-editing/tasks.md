@@ -30,9 +30,9 @@ description: "Tasks for categorization & editing workflows implementation"
 
 **Purpose**: Prepare shared configuration and storage locations needed by all user stories.
 
-- [ ] T001 Create AI-layer `categories/` directories (definitions, assignments, snapshots) in `src/bases/fs_paths.rs`.
-- [ ] T002 Add category proposal tunables (`categorization.max_proposals`, `categorization.timeout_ms`) to `src/bases/config.rs`.
-- [ ] T003 [P] Document new configuration knobs and directory layout in `specs/003-category-editing/quickstart.md`.
+- [X] T001 Create AI-layer `categories/` directories (definitions, assignments, snapshots) in `src/bases/fs_paths.rs`.
+- [X] T002 Add category proposal tunables (`categorization.max_proposals`, `categorization.timeout_ms`) to `src/bases/config.rs`.
+- [X] T003 [P] Document new configuration knobs and directory layout in `specs/003-category-editing/quickstart.md`.
 
 ---
 
@@ -40,13 +40,13 @@ description: "Tasks for categorization & editing workflows implementation"
 
 **Purpose**: Core persistence, orchestration, and report plumbing required before any user story work.
 
-- [ ] T004 Implement `CategoryStore` (load/save CategoryDefinition + Narrative) in `src/bases/categories.rs`.
-- [ ] T005 Implement `CategoryAssignmentsIndex` with incremental updates in `src/bases/categories.rs`.
-- [ ] T006 Implement `CategorySnapshotStore` (capture/restore JSON snapshots) in `src/bases/categories_snapshot.rs`.
-- [ ] T007 Extend `OrchestrationLog` with category edit event types & payload helpers in `src/orchestration/mod.rs`.
-- [ ] T008 Wire report regeneration entry point to consume category definitions/pins in `src/reports/mod.rs`.
-- [ ] T009 Add consent manifest plumbing for `category_narrative_suggest` operations in `src/orchestration/consent.rs`.
-- [ ] T010 [P] Add contract skeleton `specs/003-category-editing/contracts/categories.yaml` to the build/test harness list in `tests/integration/mod.rs`.
+- [X] T004 Implement `CategoryStore` (load/save CategoryDefinition + Narrative) in `src/bases/categories.rs`.
+- [X] T005 Implement `CategoryAssignmentsIndex` with incremental updates in `src/bases/categories.rs`.
+- [X] T006 Implement `CategorySnapshotStore` (capture/restore JSON snapshots) in `src/bases/categories_snapshot.rs`.
+- [X] T007 Extend `OrchestrationLog` with category edit event types & payload helpers in `src/orchestration/mod.rs`.
+- [X] T008 Wire report regeneration entry point to consume category definitions/pins in `src/reports/mod.rs`.
+- [X] T009 Add consent manifest plumbing for `category_narrative_suggest` operations in `src/orchestration/consent.rs`.
+- [X] T010 [P] Add contract skeleton `specs/003-category-editing/contracts/categories.yaml` to the build/test harness list in `tests/integration/mod.rs`.
 
 **Checkpoint**: Persistence, orchestration, and report hooks are ready. User-story phases can run in parallel.
 
@@ -60,14 +60,14 @@ description: "Tasks for categorization & editing workflows implementation"
 
 ### Implementation
 
-- [ ] T011 [P] [US1] Build `FeatureVectorBuilder` (TF-IDF + embeddings) to feed clustering in `src/reports/categorization/features.rs`.
-- [ ] T012 [US1] Implement local clustering + scoring pipeline (`categories propose` worker) in `src/reports/categorization/proposals.rs`.
-- [ ] T013 [US1] Persist proposal previews (definitions + confidence) under `AI/<Base>/categories/proposals/*.json` in `src/bases/categories.rs`.
-- [ ] T014 [US1] Implement chat command `categories propose` + preview rendering in `src/chat/mod.rs`.
-- [ ] T015 [US1] Implement chat/API handler for applying/renaming/rejecting proposals per `contracts/categories.yaml` in `src/chat/api/categories.rs`.
-- [ ] T016 [US1] Log proposal + acceptance events (including consent manifest references) in `src/orchestration/mod.rs`.
-- [ ] T017 [US1] Regenerate HTML category/global reports after acceptance in `src/reports/mod.rs`.
-- [ ] T018 [US1] Add integration test `tests/integration/categories_proposals.rs` covering propose → accept flow and report regeneration.
+- [X] T011 [P] [US1] Build `FeatureVectorBuilder` (TF-IDF + embeddings) to feed clustering in `src/reports/categorization/features.rs`.
+- [X] T012 [US1] Implement local clustering + scoring pipeline (`categories propose` worker) in `src/reports/categorization/proposals.rs`.
+- [X] T013 [US1] Persist proposal previews (definitions + confidence) under `AI/<Base>/categories/proposals/*.json` in `src/bases/categories.rs`.
+- [X] T014 [US1] Implement chat command `categories propose` + preview rendering in `src/chat/mod.rs`.
+- [X] T015 [US1] Implement chat/API handler for applying/renaming/rejecting proposals per `contracts/categories.yaml` in `src/chat/api/categories.rs`.
+- [X] T016 [US1] Log proposal + acceptance events (including consent manifest references) in `src/orchestration/mod.rs`.
+- [X] T017 [US1] Regenerate HTML category/global reports after acceptance in `src/reports/mod.rs`.
+- [X] T018 [US1] Add integration test `tests/integration/categories_proposals.rs` covering propose → accept flow and report regeneration.
 
 **Checkpoint**: Researchers can generate and apply proposals entirely via chat; reports stay in sync. This is the MVP slice.
 

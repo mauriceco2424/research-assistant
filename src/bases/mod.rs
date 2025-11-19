@@ -1,9 +1,20 @@
+pub mod categories;
+pub mod categories_snapshot;
 mod config;
+mod fs_paths;
 
+pub use categories::{
+    category_slug, AssignmentSource, AssignmentStatus, CategoryAssignment,
+    CategoryAssignmentsIndex, CategoryDefinition, CategoryNarrative, CategoryOrigin,
+    CategoryProposalBatch, CategoryProposalPreview, CategoryProposalStore, CategoryRecord,
+    CategoryStore,
+};
+pub use categories_snapshot::{CategorySnapshot, CategorySnapshotStore};
 pub use config::{
     ensure_workspace_structure, workspace_root, AcquisitionSettings, AppConfig, IngestionSettings,
     WorkspacePaths,
 };
+pub use fs_paths::{ensure_category_dirs, CategoryPaths};
 
 use crate::orchestration::{log_event, EventType, OrchestrationEvent};
 use anyhow::{Context, Result};
@@ -122,6 +133,7 @@ impl BaseManager {
             created_at,
             last_active_at: Some(created_at),
         };
+        fs_paths::ensure_category_dirs(&base)?;
         self.persist_base(&base)?;
         log_event(
             self,

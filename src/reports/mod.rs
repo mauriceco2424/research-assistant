@@ -1,5 +1,7 @@
+pub mod categorization;
+
 use crate::acquisition::figure_store::{FigureAssetRecord, FigureStore};
-use crate::bases::{Base, BaseManager, LibraryEntry};
+use crate::bases::{Base, BaseManager, CategoryAssignmentsIndex, CategoryStore, LibraryEntry};
 use crate::orchestration::{
     log_event, EventType, MetricRecord, OrchestrationLog, ReportMetricsRecord, REPORT_SLA_SECS,
 };
@@ -14,11 +16,14 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct CategoryReport {
     pub name: String,
+    pub description: Option<String>,
+    pub narrative_summary: Option<String>,
     pub entries: Vec<LibraryEntry>,
+    pub pinned_entries: Vec<LibraryEntry>,
+    pub figure_gallery_enabled: bool,
 }
 
-/// Generates naive categories based on venue or first letter.
-pub fn generate_category_reports(entries: &[LibraryEntry]) -> Vec<CategoryReport> {
+fn fallback_category_reports(entries: &[LibraryEntry]) -> Vec<CategoryReport> {
     let mut buckets: BTreeMap<String, Vec<LibraryEntry>> = BTreeMap::new();
     for entry in entries {
         let key = entry
@@ -29,8 +34,67 @@ pub fn generate_category_reports(entries: &[LibraryEntry]) -> Vec<CategoryReport
     }
     buckets
         .into_iter()
-        .map(|(name, entries)| CategoryReport { name, entries })
+        .map(|(name, mut entries)| {
+            entries.sort_by(|a, b| a.title.cmp(&b.title));
+            CategoryReport {
+                name,
+                description: None,
+                narrative_summary: None,
+                entries,
+                pinned_entries: Vec::new(),
+                figure_gallery_enabled: false,
+            }
+        })
         .collect()
+}
+
+fn load_category_reports(base: &Base, entries: &[LibraryEntry]) -> Result<Vec<CategoryReport>> {
+    let store = CategoryStore::new(base)?;
+    let records = store.list()?;
+    if records.is_empty() {
+        return Ok(fallback_category_reports(entries));
+    }
+    let assignments_index = CategoryAssignmentsIndex::new(base)?;
+    let assignments = assignments_index.list_all()?;
+    let entries_by_id: HashMap<Uuid, LibraryEntry> = entries
+        .iter()
+        .map(|entry| (entry.entry_id, entry.clone()))
+        .collect();
+    let mut grouped: HashMap<Uuid, Vec<LibraryEntry>> = HashMap::new();
+    for assignment in assignments {
+        if let Some(entry) = entries_by_id.get(&assignment.paper_id) {
+            grouped
+                .entry(assignment.category_id)
+                .or_default()
+                .push(entry.clone());
+        }
+    }
+    let mut reports = Vec::new();
+    for record in records {
+        let mut assigned = grouped
+            .remove(&record.definition.category_id)
+            .unwrap_or_default();
+        assigned.sort_by(|a, b| a.title.cmp(&b.title));
+        let mut pinned = Vec::new();
+        if !record.definition.pinned_papers.is_empty() {
+            for pinned_id in &record.definition.pinned_papers {
+                if let Some(pos) = assigned.iter().position(|e| &e.entry_id == pinned_id) {
+                    pinned.push(assigned.remove(pos));
+                } else if let Some(entry) = entries_by_id.get(pinned_id) {
+                    pinned.push(entry.clone());
+                }
+            }
+        }
+        reports.push(CategoryReport {
+            name: record.definition.name.clone(),
+            description: Some(record.definition.description.clone()),
+            narrative_summary: Some(record.narrative.summary.clone()),
+            entries: assigned,
+            pinned_entries: pinned,
+            figure_gallery_enabled: record.definition.figure_gallery_enabled,
+        });
+    }
+    Ok(reports)
 }
 
 pub fn write_category_report(
@@ -44,19 +108,30 @@ pub fn write_category_report(
     let mut html = String::new();
     html.push_str("<html><body><h1>Category Report</h1>");
     for cat in categories {
-        html.push_str(&format!("<h2>{}</h2><ul>", cat.name));
-        for entry in &cat.entries {
-            html.push_str(&format!("<li><strong>{}</strong>", entry.title));
-            if let Some(figures) = figure_map.get(&entry.entry_id) {
-                html.push_str("<div class=\"figures\">");
-                for figure in figures {
-                    html.push_str(&render_figure_html(figure));
-                }
-                html.push_str("</div>");
+        html.push_str(&format!(
+            "<section class=\"category\"><h2>{}</h2>",
+            cat.name
+        ));
+        if let Some(desc) = &cat.description {
+            if !desc.is_empty() {
+                html.push_str(&format!("<p class=\"description\">{}</p>", desc));
             }
-            html.push_str("</li>");
         }
-        html.push_str("</ul>");
+        if let Some(summary) = &cat.narrative_summary {
+            if !summary.is_empty() {
+                html.push_str(&format!(
+                    "<div class=\"narrative\"><strong>Narrative:</strong><p>{}</p></div>",
+                    summary
+                ));
+            }
+        }
+        if !cat.pinned_entries.is_empty() {
+            html.push_str("<div class=\"pinned\"><h3>Pinned Papers</h3>");
+            append_entry_list_html(&mut html, &cat.pinned_entries, figure_map);
+            html.push_str("</div>");
+        }
+        append_entry_list_html(&mut html, &cat.entries, figure_map);
+        html.push_str("</section>");
     }
     html.push_str("</body></html>");
     fs::write(&path, html)?;
@@ -102,7 +177,7 @@ pub fn generate_and_log_reports(
     entries: &[LibraryEntry],
 ) -> Result<(PathBuf, PathBuf)> {
     let started = Instant::now();
-    let categories = generate_category_reports(entries);
+    let categories = load_category_reports(base, entries)?;
     let figure_map = load_figures_grouped(base)?;
     let cat_path = write_category_report(base, &categories, &figure_map)?;
     let global_path = write_global_report(base, entries, &figure_map)?;
@@ -145,4 +220,27 @@ fn render_figure_html(figure: &FigureAssetRecord) -> String {
         "<figure><figcaption>{}</figcaption><a href=\"file://{path}\">{}</a></figure>",
         figure.caption, path
     )
+}
+
+fn append_entry_list_html(
+    html: &mut String,
+    entries: &[LibraryEntry],
+    figure_map: &HashMap<Uuid, Vec<FigureAssetRecord>>,
+) {
+    html.push_str("<ul>");
+    for entry in entries {
+        html.push_str(&format!("<li><strong>{}</strong>", entry.title));
+        if let Some(year) = entry.year {
+            html.push_str(&format!(" <em>({})</em>", year));
+        }
+        if let Some(figures) = figure_map.get(&entry.entry_id) {
+            html.push_str("<div class=\"figures\">");
+            for figure in figures {
+                html.push_str(&render_figure_html(figure));
+            }
+            html.push_str("</div>");
+        }
+        html.push_str("</li>");
+    }
+    html.push_str("</ul>");
 }
