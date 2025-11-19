@@ -75,4 +75,16 @@ impl<'a> ReportProgressTracker<'a> {
             serde_json::to_value(payload)?,
         )
     }
+
+    pub fn job_id(&self) -> Uuid {
+        self.job_id
+    }
+
+    pub fn started_at(&self) -> DateTime<Utc> {
+        self.started_at
+    }
+
+    pub fn elapsed_ms(&self) -> i64 {
+        self.started_instant.elapsed().as_millis() as i64
+    }
 }

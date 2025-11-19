@@ -44,15 +44,15 @@
 
 ### Implementation
 
-- [ ] T008 [US1] Implement report build queue + job lifecycle management in `src/reports/build_service.rs` (enqueue, serialization, single active job enforcement).
-- [ ] T009 [P] [US1] Create deterministic HTML renderer + asset layout helpers in `src/reports/html_renderer.rs`, consuming AI-layer narratives/metrics and writing to `/User/<Base>/reports/`.
-- [ ] T010 [US1] Implement manifest writer + checksum generation in `src/reports/manifest_writer.rs`, persisting `ReportManifest` per run and referencing AI-layer snapshot IDs.
-- [ ] T011 [US1] Wire `reports regenerate` chat command in `src/chat/commands/reports.ts` and backend bridge `src/chat/commands/reports.rs` to invoke `build_service` with scope parsing and overwrite confirmations.
-- [ ] T012 [US1] Integrate orchestration progress + completion replies in `src/chat/handlers/report_updates.rs`, ensuring chat replies include file paths, durations, and orchestration IDs.
-- [ ] T013 [US1] Validate AI-layer freshness in `src/reports/build_service.rs` by comparing requested scopes against snapshot metadata and aborting regeneration with guidance when data is stale or missing.
-- [ ] T014 [US1] Instrument build duration/progress metrics across `src/reports/build_service.rs` and `src/orchestration/report_progress.rs`, guaranteeing <=60s completion and <=5s progress intervals with documented verification.
-- [ ] T015 [US1] Implement fail-fast guards in `src/reports/build_service.rs` to roll back partial writes and emit actionable chat remediation for disk, consent, and remote-summarization failures.
-- [ ] T016 [US1] Add regression tests in `tests/integration/reports_errors.rs` covering stale-data blocks, fail-fast rollbacks, and preservation of existing HTML when errors occur.
+- [X] T008 [US1] Implement report build queue + job lifecycle management in `src/reports/build_service.rs` (enqueue, serialization, single active job enforcement).
+- [X] T009 [P] [US1] Create deterministic HTML renderer + asset layout helpers in `src/reports/html_renderer.rs`, consuming AI-layer narratives/metrics and writing to `/User/<Base>/reports/`.
+- [X] T010 [US1] Implement manifest writer + checksum generation in `src/reports/manifest_writer.rs`, persisting `ReportManifest` per run and referencing AI-layer snapshot IDs.
+- [X] T011 [US1] Wire `reports regenerate` chat command in `src/chat/commands/reports.ts` and backend bridge `src/chat/commands/reports.rs` to invoke `build_service` with scope parsing and overwrite confirmations.
+- [X] T012 [US1] Integrate orchestration progress + completion replies in `src/chat/handlers/report_updates.rs`, ensuring chat replies include file paths, durations, and orchestration IDs.
+- [X] T013 [US1] Validate AI-layer freshness in `src/reports/build_service.rs` by comparing requested scopes against snapshot metadata and aborting regeneration with guidance when data is stale or missing.
+- [X] T014 [US1] Instrument build duration/progress metrics across `src/reports/build_service.rs` and `src/orchestration/report_progress.rs`, guaranteeing <=60s completion and <=5s progress intervals with documented verification.
+- [X] T015 [US1] Implement fail-fast guards in `src/reports/build_service.rs` to roll back partial writes and emit actionable chat remediation for disk, consent, and remote-summarization failures.
+- [X] T016 [US1] Add regression tests in `tests/integration/reports_errors.rs` covering stale-data blocks, fail-fast rollbacks, and preservation of existing HTML when errors occur.
 
 **Checkpoint**: Base-wide regeneration works end-to-end and can be validated independently via chat command + manifest inspection.
 
@@ -66,11 +66,11 @@
 
 ### Implementation
 
-- [ ] T017 [US2] Extend configuration command handling in `src/chat/commands/reports.ts` and backend `src/reports/config_store.rs` to persist Base defaults + override flags per consented option.
-- [ ] T018 [P] [US2] Implement consent prompt + approval logging pipeline in `src/reports/consent_registry.rs`, generating prompt manifests and storing signed `ConsentManifest` records.
-- [ ] T019 [US2] Build local figure extraction + gallery renderer in `src/reports/figure_gallery.rs`, storing assets under `/User/<Base>/reports/assets/figures/<category>/` and tagging manifests with consent tokens.
-- [ ] T020 [US2] Implement visualization dataset selector in `src/reports/visualizations.rs` that resolves concept maps/timelines/citation graphs per toggles and records when remote summarization is required.
-- [ ] T021 [US2] Update audit manifest writing (`src/reports/manifest_writer.rs`) and chat output to flag included/excluded assets plus consent references for each regeneration.
+- [X] T017 [US2] Extend configuration command handling in `src/chat/commands/reports.ts` and backend `src/reports/config_store.rs` to persist Base defaults + override flags per consented option.
+- [X] T018 [P] [US2] Implement consent prompt + approval logging pipeline in `src/reports/consent_registry.rs`, generating prompt manifests and storing signed `ConsentManifest` records.
+- [X] T019 [US2] Build local figure extraction + gallery renderer in `src/reports/figure_gallery.rs`, storing assets under `/User/<Base>/reports/assets/figures/<category>/` and tagging manifests with consent tokens.
+- [X] T020 [US2] Implement visualization dataset selector in `src/reports/visualizations.rs` that resolves concept maps/timelines/citation graphs per toggles and records when remote summarization is required.
+- [X] T021 [US2] Update audit manifest writing (`src/reports/manifest_writer.rs`) and chat output to flag included/excluded assets plus consent references for each regeneration.
 
 **Checkpoint**: Report generation honors stored defaults, enforces consent, and enriches HTML with approved galleries/visualizations.
 
@@ -84,11 +84,11 @@
 
 ### Implementation
 
-- [ ] T022 [US3] Implement bundle assembly + checksum calculation in `src/reports/share_builder.rs`, respecting include/exclude flags and limiting copies to requested assets.
-- [ ] T023 [P] [US3] Add provenance summary writer `src/reports/share_manifest.rs` that stores `ShareBundleDescriptor` next to bundles and links back to `ReportManifest`.
-- [ ] T024 [US3] Wire `reports share` chat/backend command handling in `src/chat/commands/reports.ts` and `src/reports/share_service.rs`, including overwrite confirmations and orchestration logging.
-- [ ] T025 [US3] Ensure bundle creation logs appear in chat + AI-layer audit trail by extending `src/chat/handlers/report_updates.rs` and `src/reports/manifest.rs` with share metadata.
-- [ ] T026 [US3] Script manifest replay verification in `scripts/verify_manifest_repro.sh` (or an equivalent Rust test) proving `ReportManifest` inputs reproduce byte-identical HTML and document the steps in `specs/004-reports-visuals/quickstart.md`.
+- [X] T022 [US3] Implement bundle assembly + checksum calculation in `src/reports/share_builder.rs`, respecting include/exclude flags and limiting copies to requested assets.
+- [X] T023 [P] [US3] Add provenance summary writer `src/reports/share_manifest.rs` that stores `ShareBundleDescriptor` next to bundles and links back to `ReportManifest`.
+- [X] T024 [US3] Wire `reports share` chat/backend command handling in `src/chat/commands/reports.ts` and `src/reports/share_service.rs`, including overwrite confirmations and orchestration logging.
+- [X] T025 [US3] Ensure bundle creation logs appear in chat + AI-layer audit trail by extending `src/chat/handlers/report_updates.rs` and `src/reports/manifest.rs` with share metadata.
+- [X] T026 [US3] Script manifest replay verification in `scripts/verify_manifest_repro.sh` (or an equivalent Rust test) proving `ReportManifest` inputs reproduce byte-identical HTML and document the steps in `specs/004-reports-visuals/quickstart.md`.
 
 **Checkpoint**: Bundling workflow runs independently, producing shareable archives with verifiable provenance without touching unrelated reports.
 
@@ -98,9 +98,9 @@
 
 **Purpose**: Final pass for documentation, resilience, and manual validation across stories.
 
-- [ ] T027 [P] Update `specs/004-reports-visuals/quickstart.md` with final CLI options, consent prompts, bundle instructions, and manifest replay guidance.
-- [ ] T028 Run end-to-end dry runs following quickstart commands, ensuring orchestration logs + manifests align; document findings in `specs/004-reports-visuals/research.md` addendum.
-- [ ] T029 Instrument orchestration analytics (e.g., tagging chat/progress logs for satisfaction review) and summarize SC-005 monitoring procedures in `specs/004-reports-visuals/research.md`.
+- [X] T027 [P] Update `specs/004-reports-visuals/quickstart.md` with final CLI options, consent prompts, bundle instructions, and manifest replay guidance.
+- [X] T028 Run end-to-end dry runs following quickstart commands, ensuring orchestration logs + manifests align; document findings in `specs/004-reports-visuals/research.md` addendum.
+- [X] T029 Instrument orchestration analytics (e.g., tagging chat/progress logs for satisfaction review) and summarize SC-005 monitoring procedures in `specs/004-reports-visuals/research.md`.
 
 ---
 

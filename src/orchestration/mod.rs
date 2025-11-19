@@ -41,6 +41,7 @@ pub enum EventType {
     MetadataRefreshApplied,
     MetadataRefreshUndo,
     ReportsGenerated,
+    ReportsShared,
     CategoryProposalsGenerated,
     CategoryProposalsApplied,
     CategoryEdit,

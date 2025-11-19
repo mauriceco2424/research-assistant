@@ -2,8 +2,13 @@ pub mod build_service;
 pub mod categorization;
 pub mod config_store;
 pub mod consent_registry;
+pub mod figure_gallery;
+pub mod html_renderer;
 pub mod manifest;
+pub mod manifest_writer;
 pub mod share_builder;
+pub mod share_manifest;
+pub mod share_service;
 pub mod visualizations;
 
 use crate::acquisition::figure_store::{FigureAssetRecord, FigureStore};

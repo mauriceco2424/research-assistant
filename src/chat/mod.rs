@@ -1,3 +1,6 @@
+pub mod commands;
+pub mod handlers;
+
 use crate::acquisition::{
     discover_candidates, generate_candidates_from_interview, run_acquisition_batch,
     run_figure_extraction, undo_last_batch, CandidatePaper, InterviewAnswers,
@@ -8,6 +11,11 @@ use crate::bases::{
     CategoryMetricsStore, CategoryOrigin, CategoryProposalStore, CategoryRecord,
     CategorySnapshotStore, CategoryStore, MergeOptions, NarrativeUpdate,
 };
+use crate::chat::commands::reports::{
+    RegenerateOutcome, ReportConfigureOptions, ReportRegenerateOptions, ReportShareOptions,
+    ReportsCommandBridge,
+};
+use crate::chat::handlers::report_updates::{build_completion_summary, queued_message};
 use crate::ingestion::{
     detect_duplicate_groups, format_batch_status, format_duplicate_group, ingest_local_pdfs,
     merge_duplicate_group, refresh_metadata, IngestionRunner, MetadataRefreshRequest,
@@ -58,6 +66,80 @@ impl ChatSession {
 
     pub fn select_base(&mut self, base_id: &Uuid) -> Result<()> {
         self.manager.set_active_base(base_id)
+    }
+
+    pub fn reports_configure(&mut self, options: ReportConfigureOptions) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ReportsCommandBridge::new(&self.manager);
+        let outcome = bridge.configure(&base, options)?;
+        let mut response = String::new();
+        response.push_str("Report defaults updated:\n");
+        response.push_str(&format!(
+            "- include_figures: {}\n",
+            outcome.defaults.include_figures
+        ));
+        if outcome.defaults.include_visualizations.is_empty() {
+            response.push_str("- visualizations: (none)\n");
+        } else {
+            response.push_str(&format!(
+                "- visualizations: {}\n",
+                outcome.defaults.include_visualizations.join(", ")
+            ));
+        }
+        if outcome.defaults.excluded_assets.is_empty() {
+            response.push_str("- excluded assets: (none)\n");
+        } else {
+            response.push_str(&format!(
+                "- excluded assets: {}\n",
+                outcome.defaults.excluded_assets.join(", ")
+            ));
+        }
+        response.push_str(&format!(
+            "- consent_refresh_days: {}\n",
+            outcome.defaults.consent_refresh_days
+        ));
+        if !outcome.consent_ids.is_empty() {
+            response.push_str("Captured consent IDs:\n");
+            for token in outcome.consent_ids {
+                response.push_str(&format!("  - {token}\n"));
+            }
+        }
+        Ok(response.trim_end().to_string())
+    }
+
+    pub fn reports_regenerate(&mut self, options: ReportRegenerateOptions) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ReportsCommandBridge::new(&self.manager);
+        match bridge.regenerate(&base, options)? {
+            RegenerateOutcome::Completed(result) => Ok(build_completion_summary(&base, &result)),
+            RegenerateOutcome::Queued { request_id, scope } => {
+                Ok(queued_message(request_id, &scope))
+            }
+        }
+    }
+
+    pub fn reports_share(&mut self, options: ReportShareOptions) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ReportsCommandBridge::new(&self.manager);
+        let outcome = bridge.share(&base, options)?;
+        let descriptor = outcome.descriptor;
+        let mut response = String::new();
+        response.push_str("reports share completed.\n");
+        response.push_str(&format!(
+            "Bundle ID: {}\nDestination: {}\nFormat: {}\nSize: {} bytes",
+            descriptor.bundle_id,
+            descriptor.destination.display(),
+            descriptor.format,
+            descriptor.size_bytes.unwrap_or(0)
+        ));
+        if let Some(hash) = &descriptor.checksum {
+            response.push_str(&format!("\nChecksum: {}", hash));
+        }
+        response.push_str(&format!(
+            "\nFigures included: {}\nVisualizations included: {}",
+            descriptor.include_figures, descriptor.include_visualizations
+        ));
+        Ok(response)
     }
 
     pub fn ingest_path_a<P: AsRef<Path>>(&mut self, folder: P) -> Result<String> {

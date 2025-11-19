@@ -12,6 +12,25 @@ use uuid::Uuid;
 
 const MANIFEST_DIR: &str = "reports/manifests";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReportScopeMode {
+    All,
+    GlobalOnly,
+    Categories,
+    Includes,
+}
+
+impl ReportScopeMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ReportScopeMode::All => "all",
+            ReportScopeMode::GlobalOnly => "global_only",
+            ReportScopeMode::Categories => "categories",
+            ReportScopeMode::Includes => "includes",
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReportScope {
@@ -25,9 +44,41 @@ pub struct ReportScope {
 impl Default for ReportScope {
     fn default() -> Self {
         Self {
-            mode: "all".into(),
+            mode: ReportScopeMode::All.as_str().into(),
             categories: Vec::new(),
             includes: Vec::new(),
+        }
+    }
+}
+
+impl ReportScope {
+    pub fn mode(&self) -> ReportScopeMode {
+        match self.mode.as_str() {
+            "global_only" => ReportScopeMode::GlobalOnly,
+            "categories" => ReportScopeMode::Categories,
+            "includes" => ReportScopeMode::Includes,
+            _ => ReportScopeMode::All,
+        }
+    }
+
+    pub fn label(&self) -> String {
+        match self.mode() {
+            ReportScopeMode::All => "all reports".into(),
+            ReportScopeMode::GlobalOnly => "global summary".into(),
+            ReportScopeMode::Categories => {
+                if self.categories.is_empty() {
+                    "selected categories".into()
+                } else {
+                    format!("{} categories", self.categories.len())
+                }
+            }
+            ReportScopeMode::Includes => {
+                if self.includes.is_empty() {
+                    "custom selection".into()
+                } else {
+                    format!("{} outputs", self.includes.len())
+                }
+            }
         }
     }
 }
@@ -40,17 +91,29 @@ pub struct ReportBuildRequest {
     pub scope: ReportScope,
     pub overrides: ReportConfigOverrides,
     pub requested_at: DateTime<Utc>,
+    #[serde(default)]
+    pub overwrite_existing: bool,
 }
 
 impl ReportBuildRequest {
-    pub fn new(base_id: Uuid, scope: ReportScope, overrides: ReportConfigOverrides) -> Self {
+    pub fn new(
+        base_id: Uuid,
+        scope: ReportScope,
+        overrides: ReportConfigOverrides,
+        overwrite_existing: bool,
+    ) -> Self {
         Self {
             request_id: Uuid::new_v4(),
             base_id,
             scope,
             overrides,
             requested_at: Utc::now(),
+            overwrite_existing,
         }
+    }
+
+    pub fn scope_label(&self) -> String {
+        self.scope.label()
     }
 }
 

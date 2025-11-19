@@ -29,3 +29,15 @@
 - **Alternatives considered**:
   - Never expire: risks stale approvals violating consent principles.
   - Require consent every run: deteriorates UX and slows workflows.
+
+## Phase 6 Validation & Analytics Addendum
+
+- **Dry-run verification (T028)**  
+  - Executed the full quickstart flow on a seeded Base using `reports configure`, `reports regenerate`, `reports share`, and `verify_manifest`.  
+  - Observed orchestration events (`ReportsGenerated`, `ReportsShared`) with matching consent tokens and manifest IDs in `AI/<Base>/events.jsonl`.  
+  - Confirmed share manifests landed under `AI/<Base>/reports/share_manifests/` and `verify_manifest` reported zero hash drift, satisfying SC-004 reproducibility checks.
+
+- **SC-005 instrumentation plan (T029)**  
+  - Tag every `ReportsGenerated` / `ReportsShared` event with `include_figures`, `include_visualizations`, durations, and bundle sizes to feed satisfaction dashboards.  
+  - Capture chat-surface summaries (handlers/report_updates) including consent IDs so post-run surveys can correlate user perceptions with logged transparency events.  
+  - Weekly script will aggregate orchestration logs (counts, durations, consent refresh churn) and feed the governance learning review noted in the master spec.

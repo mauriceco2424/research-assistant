@@ -44,6 +44,9 @@ mod categories_proposals;
 mod categories_editing;
 mod categories_status;
 mod categories_narratives;
+mod reports_errors;
+mod reports_share;
+mod reports_configure;
 
 #[test]
 fn contracts_exist() {
