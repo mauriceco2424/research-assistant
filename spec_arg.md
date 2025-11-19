@@ -1,26 +1,28 @@
-# Spec Argument – Categorization & Editing Workflows (Spec 03)
+# Spec Argument – Reports & Visualizations (Spec 04)
 
-Design the **Categorization & Editing** feature set for ResearchBase, the next roadmap item after Spec 02 per `master_spec.md §16`. This request should produce one focused spec that gives researchers a chat-first way to organize newly ingested papers, revise category structures, and keep HTML reports/AI-layer artifacts aligned without violating P1–P10.
+Design the **Reports & Visualizations** feature set described in `master_spec.md` §§3, 4, 10, and 11 (roadmap item Spec 04). Produce a single focused spec that turns AI-layer knowledge into regenerable HTML reports (category/global, figure galleries, visualizations) while honoring constitutional principles (P1–P10).
 
 ## User Intent & Scenarios
-- After completing ingestion/metadata (Spec 02), the researcher wants the AI to propose initial categories and summaries, accept/modify those suggestions, and keep the Base organized as new papers arrive.
-- They need to merge or split categories, rename them, move papers between categories, and annotate category narratives entirely via chat, with those edits reflected both in AI-layer metadata and regenerable HTML reports.
-- They want quick visibility into category health (paper counts, uncategorized backlog, pinned/highlighted papers) and lightweight per-category editing like notes or priority flags that downstream learning/reporting modes can reuse.
+- After ingestion (Spec 02) and categorization/editing (Spec 03), the researcher wants commands like `reports regenerate`, `reports configure`, or `reports share` to produce local HTML artifacts they can open or distribute without manual file wrangling.
+- Category reports must include narratives, pinned highlights, backlog/health metrics, optional figure galleries (with consent), and embedded visualizations (concept maps, timelines, citation graphs) per `master_spec.md` §11.
+- Global reports summarize the entire Base (counts, discovery prompts, writing hooks) and expose toggles for heavier assets so offline users can exclude figures/scripts.
+- Whenever figure extraction or remote summarization is requested, the workflow must prompt for consent manifests and log approvals before touching external endpoints.
 
 ## Constraints & Constitutional Alignment
-- **P1 Local-First**: All category models, summaries, and edits remain in the Base’s local User/AI layers. Remote LLM assistance (if needed) must present a consent manifest per P2 before using external endpoints.
-- **P3/P4 Dual-Layer & Regenerability**: Category definitions, paper assignments, and narratives must be stored in AI-layer JSON/Markdown so HTML category/global reports stay regenerable without rerunning ingestion. Editing commands must update both layers consistently.
-- **P5 Chat-First**: No new complex UI panes—category management happens in chat with optional HTML report previews.
-- **P6 Transparency/Undo**: Auto-cluster, merge, split, move, and rename operations emit orchestration events and support undo for at least the last operation per Base.
-- **P7 Academic Integrity**: Category summaries cite their source papers or clearly mark unverified insights.
+- **P1 Local-First & P2 Consent**: Report generation, figure assets, and visualization data stay on the local filesystem. Any remote LLM assistance explicitly lists prompt manifests and requires user approval each time.
+- **P3/P4 Dual-Layer & Regenerability**: HTML outputs are deterministic derivatives of AI-layer sources (categories JSON, narratives, metrics, visualization datasets). Users can delete/rebuild them at any time and expect identical content when sources are unchanged.
+- **P5 Chat-First**: No new persistent UI panes; all report actions originate in chat with clear progress + completion summaries (file paths, durations, warnings).
+- **P6 Transparency**: Long-running report jobs emit orchestration events (start/end timestamps, success/failure, asset counts) and require confirmation before overwriting previous outputs.
+- **P7 Academic Integrity**: Reports cite referenced papers, label AI-generated narratives, and distinguish suggested vs. verified figures/visualizations.
+- **Performance**: Regenerating category + global reports for Bases ≤1 000 papers must finish ≲60 s (per plan/perf targets) with progress copy in chat.
 
 ## Success Criteria
-1. From a freshly ingested Base, running a command like `categories propose` produces ≥5 suggested categories with confidence scores, representative papers, and short summaries persisted under AI-layer `categories/*.json` plus matching entries in the User-layer reports.
-2. Chat commands exist for rename/merge/split/move/pin/unpin operations, and executing them updates AI-layer metadata, regenerates HTML category/global reports within 60 s for Bases ≤1 000 papers, and surfaces confirmation in chat.
-3. Undoing the last category edit restores the previous AI-layer snapshot and re-renders reports; orchestration logs capture each edit with timestamps, actor, and affected categories.
-4. `categories status` (or similar) lists all categories with paper counts, uncategorized backlog, pinned papers, and outstanding TODOs, enabling researchers to see gaps at a glance.
+1. Running `reports regenerate --scope all` produces fresh category and global HTML files under `/User/<Base>/reports/`, embedding narratives, pinned highlights, backlog stats, and optional visualizations; chat replies with file paths, durations, and orchestration IDs.
+2. Enabling figure galleries triggers consent prompts, stores approvals (e.g., `figure_gallery_render` manifest), extracts images locally, and embeds them without touching AI-layer history; disabling galleries omits figure assets from new builds.
+3. Users can target specific outputs (e.g., `reports regenerate --category "Neural Methods"` or `reports share --format zip`) and the system bundles only the requested HTML + assets while logging provenance manifests so partners can verify inputs.
+4. Each report bundle references an audit manifest (JSON/Markdown) in the AI layer that enumerates inputs (category snapshot, metrics revision, visualization data) so re-running the same manifest reproduces identical HTML.
 
 ## Scope Guardrails
-- Stick to categorization + editing workflows. Defer new ingestion, acquisition, or desktop-shell UI work to future specs on the roadmap.
-- Reference `master_spec.md §§5.2–5.3 & 16` for context, plus `.specify/memory/constitution.md` for P1–P10 alignment. Call out any potential conflicts explicitly in the spec.
-- Do not prescribe module/file names or implementation details beyond what’s necessary for requirements; leave structure decisions for `/speckit.plan` and `/speckit.tasks`.
+- Focus strictly on HTML reports, figure galleries, and embedded visualizations. Do **not** expand ingestion, acquisition, writing assistant, or UI shell behavior; those belong to other specs.
+- Reference `.specify/memory/constitution.md` for P1–P10 and call out any potential conflicts (e.g., external visualization libraries) with mitigation guidance.
+- Avoid implementation details (filenames, functions). Define behaviors, consent flows, toggles, and performance/telemetry expectations so `/speckit.plan` and `/speckit.tasks` can translate requirements into architecture.

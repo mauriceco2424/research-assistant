@@ -1,0 +1,143 @@
+openapi: 3.0.3
+info:
+  title: Reports & Visualizations Commands
+  version: 0.1.0
+paths:
+  /reports/regenerate:
+    post:
+      summary: Build category/global reports for a Base scope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_id, scope]
+              properties:
+                base_id:
+                  type: string
+                  format: uuid
+                scope:
+                  type: object
+                  description: Target subset definition.
+                  properties:
+                    mode:
+                      type: string
+                      enum: [all, global_only, categories, includes]
+                    categories:
+                      type: array
+                      items:
+                        type: string
+                        format: uuid
+                    includes:
+                      type: array
+                      description: Specific report identifiers to rebuild.
+                      items:
+                        type: string
+                include_visualizations:
+                  type: array
+                  items:
+                    type: string
+                    enum: [concept_map, timeline, citation_graph, backlog_chart]
+                include_figures:
+                  type: boolean
+                overwrite_existing:
+                  type: boolean
+                  default: false
+                overrides:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '202':
+          description: Build enqueued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  build_request_id:
+                    type: string
+                  orchestration_id:
+                    type: string
+  /reports/configure:
+    post:
+      summary: Update stored Base defaults for report generation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_id]
+              properties:
+                base_id:
+                  type: string
+                defaults:
+                  type: object
+                  properties:
+                    include_visualizations:
+                      type: array
+                      items:
+                        type: string
+                        enum: [concept_map, timeline, citation_graph, backlog_chart]
+                    include_figures:
+                      type: boolean
+                    excluded_assets:
+                      type: array
+                      items:
+                        type: string
+                    consent_refresh_days:
+                      type: integer
+                      minimum: 1
+      responses:
+        '200':
+          description: Defaults updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config_snapshot_id:
+                    type: string
+  /reports/share:
+    post:
+      summary: Package generated reports/assets into bundle for sharing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_id, manifest_id, destination_path, format]
+              properties:
+                base_id:
+                  type: string
+                manifest_id:
+                  type: string
+                destination_path:
+                  type: string
+                format:
+                  type: string
+                  enum: [zip, directory]
+                include_visualizations:
+                  type: boolean
+                include_figures:
+                  type: boolean
+                assets:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Bundle created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bundle_id:
+                    type: string
+                  checksum:
+                    type: string
+                  size_bytes:
+                    type: integer
