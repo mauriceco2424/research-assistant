@@ -47,6 +47,8 @@ mod categories_narratives;
 mod reports_errors;
 mod reports_share;
 mod reports_configure;
+mod profile_show_update;
+pub mod support;
 
 #[test]
 fn contracts_exist() {

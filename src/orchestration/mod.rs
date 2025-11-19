@@ -1,9 +1,12 @@
 pub mod consent;
+pub mod events;
 pub mod report_progress;
+pub mod profiles;
 
 pub use consent::{
     require_remote_operation_consent, ConsentManifest, ConsentOperation, ConsentScope, ConsentStore,
 };
+pub use events::{log_profile_event, ProfileEventDetails};
 pub use report_progress::ReportProgressTracker;
 
 use crate::bases::{Base, BaseManager};
@@ -45,6 +48,7 @@ pub enum EventType {
     CategoryProposalsGenerated,
     CategoryProposalsApplied,
     CategoryEdit,
+    ProfileChange,
 }
 
 /// General-purpose orchestration event stored as JSONL.

@@ -6,6 +6,8 @@ pub mod categories_narrative;
 pub mod categories_snapshot;
 mod config;
 mod fs_paths;
+pub mod layout;
+mod migrations;
 
 pub use categories::{
     category_slug, AssignmentSource, AssignmentStatus, CategoryAssignment,
@@ -23,6 +25,10 @@ pub use config::{
     WorkspacePaths,
 };
 pub use fs_paths::{ensure_category_dirs, CategoryPaths};
+pub use layout::{
+    ai_profiles_dir, profile_json_path, user_profiles_dir, ProfileLayout,
+    AI_PROFILES_SUBDIR, CONSENT_MANIFESTS_SUBDIR, PROFILE_EXPORTS_SUBDIR, USER_PROFILES_SUBDIR,
+};
 
 use crate::orchestration::{log_event, EventType, OrchestrationEvent};
 use anyhow::{Context, Result};
@@ -142,6 +148,7 @@ impl BaseManager {
             last_active_at: Some(created_at),
         };
         fs_paths::ensure_category_dirs(&base)?;
+        migrations::profile_shells::ensure_profile_shells(&base)?;
         self.persist_base(&base)?;
         log_event(
             self,

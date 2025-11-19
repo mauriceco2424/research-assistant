@@ -11,9 +11,16 @@ use crate::bases::{
     CategoryMetricsStore, CategoryOrigin, CategoryProposalStore, CategoryRecord,
     CategorySnapshotStore, CategoryStore, MergeOptions, NarrativeUpdate,
 };
-use crate::chat::commands::reports::{
-    RegenerateOutcome, ReportConfigureOptions, ReportRegenerateOptions, ReportShareOptions,
-    ReportsCommandBridge,
+use crate::chat::commands::{
+    profile::{
+        ProfileAuditRequest, ProfileCommandBridge, ProfileDeleteRequest, ProfileExportRequest,
+        ProfileInterviewRequest, ProfileRegenerateRequest, ProfileRunRequest, ProfileScopeRequest,
+        ProfileShowRequest, ProfileUpdateRequest,
+    },
+    reports::{
+        RegenerateOutcome, ReportConfigureOptions, ReportRegenerateOptions, ReportShareOptions,
+        ReportsCommandBridge,
+    },
 };
 use crate::chat::handlers::report_updates::{build_completion_summary, queued_message};
 use crate::ingestion::{
@@ -140,6 +147,69 @@ impl ChatSession {
             descriptor.include_figures, descriptor.include_visualizations
         ));
         Ok(response)
+    }
+
+    /// Stub profile show command.
+    pub fn profile_show(&mut self, request: ProfileShowRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.show(&base, request)
+    }
+
+    /// Stub profile update command.
+    pub fn profile_update(&mut self, request: ProfileUpdateRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.update(&base, request)
+    }
+
+    /// Stub profile interview command.
+    pub fn profile_interview(&mut self, request: ProfileInterviewRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.interview(&base, request)
+    }
+
+    /// Stub profile run command (e.g., writing-style runs).
+    pub fn profile_run(&mut self, request: ProfileRunRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.run(&base, request)
+    }
+
+    /// Stub profile audit command exposing orchestration events.
+    pub fn profile_audit(&mut self, request: ProfileAuditRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.audit(&base, request)
+    }
+
+    /// Stub profile export command.
+    pub fn profile_export(&mut self, request: ProfileExportRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.export(&base, request)
+    }
+
+    /// Stub profile delete command.
+    pub fn profile_delete(&mut self, request: ProfileDeleteRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.delete(&base, request)
+    }
+
+    /// Stub profile regenerate command.
+    pub fn profile_regenerate(&mut self, request: ProfileRegenerateRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.regenerate(&base, request)
+    }
+
+    /// Stub profile scope command.
+    pub fn profile_scope(&mut self, request: ProfileScopeRequest) -> Result<String> {
+        let base = self.active_base()?;
+        let bridge = ProfileCommandBridge::new(&self.manager);
+        bridge.scope(&base, request)
     }
 
     pub fn ingest_path_a<P: AsRef<Path>>(&mut self, folder: P) -> Result<String> {
