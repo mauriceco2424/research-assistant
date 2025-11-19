@@ -117,10 +117,11 @@ function Get-NextBranchNumber {
     try {
         $remoteRefs = git ls-remote --heads origin 2>$null
         if ($remoteRefs) {
-            $remoteBranches = $remoteRefs | Where-Object { $_ -match "refs/heads/(\d+)-$([regex]::Escape($ShortName))$" } | ForEach-Object {
+            $remoteBranches = $remoteRefs | ForEach-Object {
                 if ($_ -match "refs/heads/(\d+)-") {
-                    [int]$matches[1]
+                    return [int]$matches[1]
                 }
+                return $null
             }
         }
     } catch {
@@ -132,10 +133,12 @@ function Get-NextBranchNumber {
     try {
         $allBranches = git branch 2>$null
         if ($allBranches) {
-            $localBranches = $allBranches | Where-Object { $_ -match "^\*?\s*(\d+)-$([regex]::Escape($ShortName))$" } | ForEach-Object {
-                if ($_ -match "(\d+)-") {
-                    [int]$matches[1]
+            $localBranches = $allBranches | ForEach-Object {
+                $cleanBranch = $_.Trim() -replace '^\*?\s+', ''
+                if ($cleanBranch -match '^(\d+)-') {
+                    return [int]$matches[1]
                 }
+                return $null
             }
         }
     } catch {
@@ -146,10 +149,11 @@ function Get-NextBranchNumber {
     $specDirs = @()
     if (Test-Path $SpecsDir) {
         try {
-            $specDirs = Get-ChildItem -Path $SpecsDir -Directory | Where-Object { $_.Name -match "^(\d+)-$([regex]::Escape($ShortName))$" } | ForEach-Object {
-                if ($_.Name -match "^(\d+)-") {
-                    [int]$matches[1]
+            $specDirs = Get-ChildItem -Path $SpecsDir -Directory | ForEach-Object {
+                if ($_.Name -match '^(\d+)-') {
+                    return [int]$matches[1]
                 }
+                return $null
             }
         } catch {
             # Ignore errors
@@ -159,7 +163,7 @@ function Get-NextBranchNumber {
     # Combine all sources and get the highest number
     $maxNum = 0
     foreach ($num in ($remoteBranches + $localBranches + $specDirs)) {
-        if ($num -gt $maxNum) {
+        if ($null -ne $num -and $num -gt $maxNum) {
             $maxNum = $num
         }
     }
@@ -324,4 +328,3 @@ if ($Json) {
     Write-Output "HAS_GIT: $hasGit"
     Write-Output "SPECIFY_FEATURE environment variable set to: $branchName"
 }
-

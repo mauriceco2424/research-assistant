@@ -1,6 +1,6 @@
 # Feature Specification: Reports & Visualizations
 
-**Feature Branch**: `001-reports-visuals`  
+**Feature Branch**: `002-reports-visuals`  
 **Created**: 2025-11-19  
 **Status**: Draft  
 **Input**: User description: "Design the Reports & Visualizations feature set described in master_spec.md sections 3, 4, 10, and 11 (roadmap item Spec 04). Produce a single focused spec that turns AI-layer knowledge into regenerable HTML reports (category/global, figure galleries, visualizations) while honoring constitutional principles (P1-P10)."

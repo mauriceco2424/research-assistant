@@ -1,11 +1,11 @@
 # Tasks: Reports & Visualizations
 
-**Input**: Design documents from `/specs/001-reports-visuals/`
+**Input**: Design documents from `/specs/002-reports-visuals/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
 **Tests**: Not explicitly requested; verification occurs via manual commands described in quickstart.md and orchestration logs.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and validation per priority ordering (P1→P3).
+**Organization**: Tasks are grouped by user story to enable independent implementation and validation per priority ordering (P1->P3).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -36,7 +36,7 @@
 
 ---
 
-## Phase 3: User Story 1 – Regenerate Base Reports Locally (Priority: P1) ✅ MVP
+## Phase 3: User Story 1 - Regenerate Base Reports Locally (Priority: P1) - MVP
 
 **Goal**: Allow `reports regenerate` to deterministically rebuild global & category HTML using AI-layer data, write manifests, and stream orchestration updates.
 
@@ -49,12 +49,16 @@
 - [ ] T010 [US1] Implement manifest writer + checksum generation in `src/reports/manifest_writer.rs`, persisting `ReportManifest` per run and referencing AI-layer snapshot IDs.
 - [ ] T011 [US1] Wire `reports regenerate` chat command in `src/chat/commands/reports.ts` and backend bridge `src/chat/commands/reports.rs` to invoke `build_service` with scope parsing and overwrite confirmations.
 - [ ] T012 [US1] Integrate orchestration progress + completion replies in `src/chat/handlers/report_updates.rs`, ensuring chat replies include file paths, durations, and orchestration IDs.
+- [ ] T013 [US1] Validate AI-layer freshness in `src/reports/build_service.rs` by comparing requested scopes against snapshot metadata and aborting regeneration with guidance when data is stale or missing.
+- [ ] T014 [US1] Instrument build duration/progress metrics across `src/reports/build_service.rs` and `src/orchestration/report_progress.rs`, guaranteeing <=60s completion and <=5s progress intervals with documented verification.
+- [ ] T015 [US1] Implement fail-fast guards in `src/reports/build_service.rs` to roll back partial writes and emit actionable chat remediation for disk, consent, and remote-summarization failures.
+- [ ] T016 [US1] Add regression tests in `tests/integration/reports_errors.rs` covering stale-data blocks, fail-fast rollbacks, and preservation of existing HTML when errors occur.
 
 **Checkpoint**: Base-wide regeneration works end-to-end and can be validated independently via chat command + manifest inspection.
 
 ---
 
-## Phase 4: User Story 2 – Add Figures & Visualizations with Consent (Priority: P2)
+## Phase 4: User Story 2 - Add Figures & Visualizations with Consent (Priority: P2)
 
 **Goal**: Enable `reports configure` and regeneration overrides to toggle figure galleries/visualizations while enforcing consent manifests and logging approvals.
 
@@ -62,17 +66,17 @@
 
 ### Implementation
 
-- [ ] T013 [US2] Extend configuration command handling in `src/chat/commands/reports.ts` and backend `src/reports/config_store.rs` to persist Base defaults + override flags per consented option.
-- [ ] T014 [P] [US2] Implement consent prompt + approval logging pipeline in `src/reports/consent_registry.rs`, generating prompt manifests and storing signed `ConsentManifest` records.
-- [ ] T015 [US2] Build local figure extraction + gallery renderer in `src/reports/figure_gallery.rs`, storing assets under `/User/<Base>/reports/assets/figures/<category>/` and tagging manifests with consent tokens.
-- [ ] T016 [US2] Implement visualization dataset selector in `src/reports/visualizations.rs` that resolves concept maps/timelines/citation graphs per toggles and records when remote summarization is required.
-- [ ] T017 [US2] Update audit manifest writing (`src/reports/manifest_writer.rs`) and chat output to flag included/excluded assets plus consent references for each regeneration.
+- [ ] T017 [US2] Extend configuration command handling in `src/chat/commands/reports.ts` and backend `src/reports/config_store.rs` to persist Base defaults + override flags per consented option.
+- [ ] T018 [P] [US2] Implement consent prompt + approval logging pipeline in `src/reports/consent_registry.rs`, generating prompt manifests and storing signed `ConsentManifest` records.
+- [ ] T019 [US2] Build local figure extraction + gallery renderer in `src/reports/figure_gallery.rs`, storing assets under `/User/<Base>/reports/assets/figures/<category>/` and tagging manifests with consent tokens.
+- [ ] T020 [US2] Implement visualization dataset selector in `src/reports/visualizations.rs` that resolves concept maps/timelines/citation graphs per toggles and records when remote summarization is required.
+- [ ] T021 [US2] Update audit manifest writing (`src/reports/manifest_writer.rs`) and chat output to flag included/excluded assets plus consent references for each regeneration.
 
 **Checkpoint**: Report generation honors stored defaults, enforces consent, and enriches HTML with approved galleries/visualizations.
 
 ---
 
-## Phase 5: User Story 3 – Targeted Sharing & Bundling (Priority: P3)
+## Phase 5: User Story 3 - Targeted Sharing & Bundling (Priority: P3)
 
 **Goal**: Provide `reports share` to bundle requested reports/assets with provenance, overwrite confirmations, and checksums for verification.
 
@@ -80,10 +84,11 @@
 
 ### Implementation
 
-- [ ] T018 [US3] Implement bundle assembly + checksum calculation in `src/reports/share_builder.rs`, respecting include/exclude flags and limiting copies to requested assets.
-- [ ] T019 [P] [US3] Add provenance summary writer `src/reports/share_manifest.rs` that stores `ShareBundleDescriptor` next to bundles and links back to `ReportManifest`.
-- [ ] T020 [US3] Wire `reports share` chat/backend command handling in `src/chat/commands/reports.ts` and `src/reports/share_service.rs`, including overwrite confirmations and orchestration logging.
-- [ ] T021 [US3] Ensure bundle creation logs appear in chat + AI-layer audit trail by extending `src/chat/handlers/report_updates.rs` and `src/reports/manifest.rs` with share metadata.
+- [ ] T022 [US3] Implement bundle assembly + checksum calculation in `src/reports/share_builder.rs`, respecting include/exclude flags and limiting copies to requested assets.
+- [ ] T023 [P] [US3] Add provenance summary writer `src/reports/share_manifest.rs` that stores `ShareBundleDescriptor` next to bundles and links back to `ReportManifest`.
+- [ ] T024 [US3] Wire `reports share` chat/backend command handling in `src/chat/commands/reports.ts` and `src/reports/share_service.rs`, including overwrite confirmations and orchestration logging.
+- [ ] T025 [US3] Ensure bundle creation logs appear in chat + AI-layer audit trail by extending `src/chat/handlers/report_updates.rs` and `src/reports/manifest.rs` with share metadata.
+- [ ] T026 [US3] Script manifest replay verification in `scripts/verify_manifest_repro.sh` (or an equivalent Rust test) proving `ReportManifest` inputs reproduce byte-identical HTML and document the steps in `specs/002-reports-visuals/quickstart.md`.
 
 **Checkpoint**: Bundling workflow runs independently, producing shareable archives with verifiable provenance without touching unrelated reports.
 
@@ -93,16 +98,17 @@
 
 **Purpose**: Final pass for documentation, resilience, and manual validation across stories.
 
-- [ ] T022 [P] Update `specs/001-reports-visuals/quickstart.md` with final CLI options, consent prompts, and bundle instructions.
-- [ ] T023 Run end-to-end dry runs following quickstart commands, ensuring orchestration logs + manifests align; document findings in `specs/001-reports-visuals/research.md` addendum.
+- [ ] T027 [P] Update `specs/002-reports-visuals/quickstart.md` with final CLI options, consent prompts, bundle instructions, and manifest replay guidance.
+- [ ] T028 Run end-to-end dry runs following quickstart commands, ensuring orchestration logs + manifests align; document findings in `specs/002-reports-visuals/research.md` addendum.
+- [ ] T029 Instrument orchestration analytics (e.g., tagging chat/progress logs for satisfaction review) and summarize SC-005 monitoring procedures in `specs/002-reports-visuals/research.md`.
 
 ---
 
 ## Dependencies & Execution Order
 
-- **Phase 1 → Phase 2**: Setup ensures dependencies/modules exist before foundational logic.
-- **Phase 2 → US1/US2/US3**: Foundational config/manifest/consent/progress helpers are prerequisites for every user story.
-- **Story Ordering**: Execute in priority order (US1 → US2 → US3) for MVP delivery, though US2 & US3 can run in parallel after US1 if staffing allows.
+- **Phase 1 -> Phase 2**: Setup ensures dependencies/modules exist before foundational logic.
+- **Phase 2 -> US1/US2/US3**: Foundational config/manifest/consent/progress helpers are prerequisites for every user story.
+- **Story Ordering**: Execute in priority order (US1 -> US2 -> US3) for MVP delivery, though US2 & US3 can run in parallel after US1 if staffing allows.
 - **Polish**: Runs after desired user stories are complete.
 
 ## Parallel Execution Examples
@@ -112,16 +118,16 @@
 - T011 (command wiring) and T012 (chat replies) can proceed concurrently once renderer + manifest writer expose interfaces.
 
 ### User Story 2
-- T014 (consent prompts) and T015 (figure gallery) can proceed in parallel after config persistence (T013).
-- T016 (visualization selector) may run concurrently with T017 (manifest updates) once consent hooks are available.
+- T018 (consent prompts) and T019 (figure gallery) can proceed in parallel after config persistence (T017).
+- T020 (visualization selector) may run concurrently with T021 (manifest updates) once consent hooks are available.
 
 ### User Story 3
-- T018 (bundle builder) and T019 (provenance writer) can develop concurrently; integrate them via T020 command wiring afterward.
-- T021 (chat/audit logging) can parallelize with T020 once share_service exposes results.
+- T022 (bundle builder) and T023 (provenance writer) can develop concurrently; integrate them via T024 command wiring afterward.
+- T025 (chat/audit logging) can parallelize with T024 once share_service exposes results.
 
 ## Implementation Strategy
 
-1. **MVP First**: Complete Phases 1–3 to unlock deterministic regeneration (US1) before investing in optional enrichments.
+1. **MVP First**: Complete Phases 1-3 to unlock deterministic regeneration (US1) before investing in optional enrichments.
 2. **Incremental Enhancements**: Layer US2 (consent-driven enrichments) next, validating toggles independently; deliver US3 (bundling) afterward.
 3. **Parallel Staffing**: After foundational work, dedicate separate contributors to US2 and US3 while one engineer finalizes US1.
 4. **Validation Rhythm**: After each phase, rerun the relevant quickstart command to ensure manifests, orchestration logs, and chat confirmations meet acceptance criteria before moving on.

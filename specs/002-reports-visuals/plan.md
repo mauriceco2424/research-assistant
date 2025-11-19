@@ -1,13 +1,13 @@
 # Implementation Plan: Reports & Visualizations
 
-**Branch**: `001-reports-visuals` | **Date**: 2025-11-19 | **Spec**: [spec.md](spec.md)
+**Branch**: `002-reports-visuals` | **Date**: 2025-11-19 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary
 
-Chat commands (`reports regenerate`, `reports configure`, `reports share`) transform AI-layer narratives, metrics, and visualization datasets into deterministic HTML bundles stored under `/User/<Base>/reports/`. Consent manifests gate figure/visualization enrichment, manifests capture provenance for regenerability, and orchestration events keep users informed of progress, overwrites, and bundle outputs.
+Chat commands (`reports regenerate`, `reports configure`, `reports share`) transform AI-layer narratives, metrics, and visualization datasets into deterministic HTML bundles stored under `/User/<Base>/reports/`. Consent manifests gate figure/visualization enrichment, manifests capture provenance for regenerability, and orchestration events keep users informed of progress, overwrites, and bundle outputs. The `ReportManifest` defined in this plan is the same “audit manifest” referenced throughout the specification; no parallel artifact exists.
 
 ## Technical Context
 
