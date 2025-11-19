@@ -1,6 +1,6 @@
 # Data Model – Paper Ingestion, Metadata Enrichment & Figure Extraction
 
-**Feature**: `001-ingestion-figures`
+**Feature**: `002-ingestion-figures`
 **Date**: 2025-11-18
 
 ## Entities

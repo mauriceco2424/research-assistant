@@ -1,7 +1,7 @@
 # Research – Paper Ingestion, Metadata Enrichment & Figure Extraction
 
-**Feature**: `001-ingestion-figures`
-**Spec**: `specs/001-ingestion-figures/spec.md`
+**Feature**: `002-ingestion-figures`
+**Spec**: `specs/002-ingestion-figures/spec.md`
 **Date**: 2025-11-18
 
 ## Decisions & Rationale

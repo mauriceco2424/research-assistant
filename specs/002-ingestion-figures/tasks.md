@@ -5,7 +5,7 @@ description: "Task list for paper ingestion, metadata enrichment & figure extrac
 
 # Tasks: Paper Ingestion, Metadata Enrichment & Figure Extraction
 
-**Input**: Design documents from `/specs/001-ingestion-figures/`
+**Input**: Design documents from `/specs/002-ingestion-figures/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md
 
 **Organization**: Tasks grouped by user story for independent implementation/testing.
@@ -82,7 +82,7 @@ description: "Task list for paper ingestion, metadata enrichment & figure extrac
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [X] T031 Update quickstart + documentation with ingestion/figure instructions in `specs/001-ingestion-figures/quickstart.md`
+- [X] T031 Update quickstart + documentation with ingestion/figure instructions in `specs/002-ingestion-figures/quickstart.md`
 - [X] T032 Improve logging & metrics (ingestion duration, figure success rate) in `src/orchestration/mod.rs`
 - [X] T033 Optimize batch processing (configurable concurrency, chunk size) in `src/ingestion/runner.rs`
 - [X] T044 Instrument ingestion/report duration metrics + SLA alerts in `src/orchestration/mod.rs`

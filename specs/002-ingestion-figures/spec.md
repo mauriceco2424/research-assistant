@@ -1,6 +1,6 @@
 # Feature Specification: Paper Ingestion, Metadata Enrichment & Figure Extraction
 
-**Feature Branch**: `001-ingestion-figures`  
+**Feature Branch**: `002-ingestion-figures`  
 **Created**: 2025-11-18  
 **Status**: Draft  
 **Input**: User description: "Design the Paper Ingestion & Figure Extraction system for ResearchBase (Spec 02)."

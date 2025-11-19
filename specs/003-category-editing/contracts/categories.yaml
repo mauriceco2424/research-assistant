@@ -1,0 +1,179 @@
+openapi: 3.0.0
+info:
+  title: ResearchBase Categorization & Editing API
+  version: 0.1.0
+paths:
+  /bases/{baseId}/categories/proposals:
+    post:
+      summary: Generate category proposals
+      description: Runs local clustering (optional remote narrative assist per consent) and stores preview entries.
+      parameters:
+        - in: path
+          name: baseId
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Proposal batch accepted
+    get:
+      summary: List latest proposal preview
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Proposed categories with confidence scores
+  /bases/{baseId}/categories/proposals/{proposalId}/apply:
+    post:
+      summary: Accept, edit, or reject proposals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accepted_ids:
+                  type: array
+                  items:
+                    type: string
+                renamed:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      proposal_id:
+                        type: string
+                      new_name:
+                        type: string
+                rejected_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Applied categories saved and reports regenerated
+  /bases/{baseId}/categories/{categoryId}/rename:
+    post:
+      summary: Rename category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new_name:
+                  type: string
+      responses:
+        '200':
+          description: Category renamed and reports updated
+  /bases/{baseId}/categories/merge:
+    post:
+      summary: Merge two or more categories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_ids, target_name]
+              properties:
+                source_ids:
+                  type: array
+                  items:
+                    type: string
+                target_name:
+                  type: string
+                keep_pinned:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Merge completed
+  /bases/{baseId}/categories/split:
+    post:
+      summary: Split a category by rule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category_id, rule]
+              properties:
+                category_id:
+                  type: string
+                rule:
+                  type: string
+                  description: e.g., "methodology", "year"
+      responses:
+        '202':
+          description: Split suggestions queued for confirmation
+  /bases/{baseId}/categories/move-paper:
+    post:
+      summary: Move or bulk-assign papers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paper_ids, target_category_id]
+              properties:
+                paper_ids:
+                  type: array
+                  items:
+                    type: string
+                target_category_id:
+                  type: string
+                remove_from_previous:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Assignment updated
+  /bases/{baseId}/categories/{categoryId}/narrative:
+    post:
+      summary: Update category narrative or pinned papers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                summary:
+                  type: string
+                learning_prompts:
+                  type: array
+                  items:
+                    type: string
+                pinned_papers:
+                  type: array
+                  items:
+                    type: string
+                figure_gallery_enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Narrative updated and reports regenerated
+  /bases/{baseId}/categories/status:
+    get:
+      summary: Return backlog & health metrics
+      parameters:
+        - in: query
+          name: include_backlog
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Category metrics + uncategorized backlog
+  /bases/{baseId}/categories/undo:
+    post:
+      summary: Undo the most recent category edit
+      responses:
+        '200':
+          description: Previous snapshot restored

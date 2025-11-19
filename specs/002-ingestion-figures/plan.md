@@ -1,7 +1,7 @@
 # Implementation Plan: Paper Ingestion, Metadata Enrichment & Figure Extraction
 
-**Branch**: `001-ingestion-figures` | **Date**: 2025-11-18 | **Spec**: `specs/001-ingestion-figures/spec.md`
-**Input**: Feature specification from `specs/001-ingestion-figures/spec.md`
+**Branch**: `002-ingestion-figures` | **Date**: 2025-11-18 | **Spec**: `specs/002-ingestion-figures/spec.md`
+**Input**: Feature specification from `specs/002-ingestion-figures/spec.md`
 
 **Note**: This plan is generated from `/speckit.plan` and must remain aligned with the ResearchBase constitution and master spec.
 
@@ -49,7 +49,7 @@ Design and implement a resilient ingestion pipeline for ResearchBase that:
 ### Documentation (this feature)
 
 ```text
-specs/001-ingestion-figures/
+specs/002-ingestion-figures/
 ��� plan.md
 ��� research.md
 ��� data-model.md

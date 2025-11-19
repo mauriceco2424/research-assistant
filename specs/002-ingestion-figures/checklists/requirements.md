@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2025-11-18  
-**Feature**: `specs/001-ingestion-figures/spec.md`
+**Feature**: `specs/002-ingestion-figures/spec.md`
 
 ## Content Quality
 

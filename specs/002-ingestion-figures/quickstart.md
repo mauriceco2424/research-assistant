@@ -1,6 +1,6 @@
 # Quickstart – Paper Ingestion, Metadata Enrichment & Figure Extraction
 
-**Feature**: `001-ingestion-figures`
+**Feature**: `002-ingestion-figures`
 
 ## 1. Start Ingestion
 1. In chat, run `ingest start` and provide the local folder/export path.
