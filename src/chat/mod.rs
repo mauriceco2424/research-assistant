@@ -3,18 +3,23 @@ use crate::acquisition::{
     run_figure_extraction, undo_last_batch, CandidatePaper, InterviewAnswers,
 };
 use crate::bases::{
-    category_slug, AssignmentSource, AssignmentStatus, Base, BaseManager, CategoryAssignment,
-    CategoryAssignmentsIndex, CategoryOrigin, CategoryProposalStore, CategoryRecord, CategoryStore,
+    apply_narrative_update, category_slug, merge_categories, move_papers, AssignmentSource,
+    AssignmentStatus, Base, BaseManager, CategoryAssignment, CategoryAssignmentsIndex,
+    CategoryMetricsStore, CategoryOrigin, CategoryProposalStore, CategoryRecord,
+    CategorySnapshotStore, CategoryStore, MergeOptions, NarrativeUpdate,
 };
 use crate::ingestion::{
     detect_duplicate_groups, format_batch_status, format_duplicate_group, ingest_local_pdfs,
     merge_duplicate_group, refresh_metadata, IngestionRunner, MetadataRefreshRequest,
 };
 use crate::orchestration::{
-    log_event, require_remote_operation_consent, CategoryProposalEvent, ConsentOperation,
-    ConsentScope, EventType, OrchestrationLog,
+    log_event, require_remote_operation_consent, CategoryEditEventDetails, CategoryEditType,
+    CategoryProposalEvent, ConsentOperation, ConsentScope, EventType, OrchestrationLog,
 };
-use crate::reports::{categorization::proposals::CategoryProposalWorker, generate_and_log_reports};
+use crate::reports::{
+    categorization::{proposals::CategoryProposalWorker, split, status::CategoryMetricsCollector},
+    generate_and_log_reports,
+};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
@@ -482,6 +487,12 @@ impl ChatSession {
                 consent_manifest_id,
             },
         )?;
+        log.record_category_operation_metrics(
+            "categories_propose",
+            duration_ms,
+            true,
+            serde_json::json!({ "proposal_count": batch.proposals.len() }),
+        )?;
         let mut response = format!(
             "Generated {} category proposals in {} ms (batch {}).",
             batch.proposals.len(),
@@ -591,6 +602,431 @@ impl ChatSession {
             applied.len(),
             batch.batch_id
         ))
+    }
+
+    pub fn category_rename(&mut self, current_name: &str, new_name: &str) -> Result<String> {
+        let base = self.active_base()?;
+        let store = CategoryStore::new(&base)?;
+        let assignments = CategoryAssignmentsIndex::new(&base)?;
+        let snapshot = CategorySnapshotStore::new(&base)?;
+        snapshot.capture(&store, &assignments, "category_rename")?;
+        let record = store
+            .find_by_name(current_name)?
+            .with_context(|| format!("Category '{}' not found", current_name))?;
+        if store.name_exists(new_name, Some(&record.definition.category_id))? {
+            anyhow::bail!("A category named '{}' already exists.", new_name);
+        }
+        let updated = store.rename(&record.definition.category_id, new_name)?;
+        let entries = self.manager.load_library_entries(&base)?;
+        generate_and_log_reports(&self.manager, &base, &entries)?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_edit(
+            &base,
+            CategoryEditEventDetails {
+                edit_type: CategoryEditType::Rename,
+                category_ids: vec![updated.definition.category_id],
+                snapshot_id: None,
+                details: serde_json::json!({ "from": current_name, "to": new_name }),
+            },
+        )?;
+        Ok(format!(
+            "Renamed category '{}' to '{}'.",
+            current_name, new_name
+        ))
+    }
+
+    pub fn category_merge(
+        &mut self,
+        names: Vec<String>,
+        target_name: &str,
+        keep_pinned: bool,
+    ) -> Result<String> {
+        let base = self.active_base()?;
+        let store = CategoryStore::new(&base)?;
+        let assignments = CategoryAssignmentsIndex::new(&base)?;
+        let snapshot = CategorySnapshotStore::new(&base)?;
+        snapshot.capture(&store, &assignments, "category_merge")?;
+        let mut ids = Vec::new();
+        for name in &names {
+            let record = store
+                .find_by_name(name)?
+                .with_context(|| format!("Category '{}' not found", name))?;
+            ids.push(record.definition.category_id);
+        }
+        if store.name_exists(target_name, None)? {
+            let existing = store
+                .find_by_name(target_name)?
+                .map(|rec| rec.definition.category_id);
+            if existing.map(|id| !ids.contains(&id)).unwrap_or(true) {
+                anyhow::bail!(
+                    "Target category name '{}' is already used by another category.",
+                    target_name
+                );
+            }
+        }
+        let outcome = merge_categories(
+            &store,
+            &assignments,
+            MergeOptions {
+                source_ids: ids.clone(),
+                target_name: target_name.to_string(),
+                keep_pinned,
+            },
+        )?;
+        let entries = self.manager.load_library_entries(&base)?;
+        generate_and_log_reports(&self.manager, &base, &entries)?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_edit(
+            &base,
+            CategoryEditEventDetails {
+                edit_type: CategoryEditType::Merge,
+                category_ids: vec![outcome.merged_category.definition.category_id],
+                snapshot_id: None,
+                details: serde_json::json!({
+                    "merged": names,
+                    "target": target_name,
+                    "keep_pinned": keep_pinned
+                }),
+            },
+        )?;
+        Ok(format!(
+            "Merged {} categories into '{}'. Reports updated.",
+            outcome.merged_ids.len(),
+            target_name
+        ))
+    }
+
+    pub fn category_move(
+        &mut self,
+        paper_ids: Vec<Uuid>,
+        target_category: &str,
+        remove_from_previous: bool,
+    ) -> Result<String> {
+        if paper_ids.is_empty() {
+            anyhow::bail!("Provide at least one paper id to move.");
+        }
+        let base = self.active_base()?;
+        let store = CategoryStore::new(&base)?;
+        let assignments = CategoryAssignmentsIndex::new(&base)?;
+        let snapshot = CategorySnapshotStore::new(&base)?;
+        snapshot.capture(&store, &assignments, "category_move")?;
+        let target = store
+            .find_by_name(target_category)?
+            .with_context(|| format!("Target category '{}' not found", target_category))?;
+        move_papers(
+            &assignments,
+            &target.definition.category_id,
+            &paper_ids,
+            remove_from_previous,
+        )?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_edit(
+            &base,
+            CategoryEditEventDetails {
+                edit_type: CategoryEditType::Move,
+                category_ids: vec![target.definition.category_id],
+                snapshot_id: None,
+                details: serde_json::json!({
+                    "paper_count": paper_ids.len(),
+                    "target": target_category,
+                    "remove_from_previous": remove_from_previous
+                }),
+            },
+        )?;
+        Ok(format!(
+            "Moved {} papers into '{}'.",
+            paper_ids.len(),
+            target_category
+        ))
+    }
+
+    pub fn category_split(&mut self, category_name: &str, rule: &str) -> Result<String> {
+        let base = self.active_base()?;
+        let store = CategoryStore::new(&base)?;
+        let assignments = CategoryAssignmentsIndex::new(&base)?;
+        let snapshot = CategorySnapshotStore::new(&base)?;
+        snapshot.capture(&store, &assignments, "category_split")?;
+        let record = store
+            .find_by_name(category_name)?
+            .with_context(|| format!("Category '{}' not found", category_name))?;
+        let entry_map = self
+            .manager
+            .load_library_entries(&base)?
+            .into_iter()
+            .map(|entry| (entry.entry_id, entry))
+            .collect::<HashMap<_, _>>();
+        let assignment_ids = assignments.list_for_category(&record.definition.category_id)?;
+        let mut assigned_entries = Vec::new();
+        for assignment in assignment_ids {
+            if let Some(entry) = entry_map.get(&assignment.paper_id) {
+                assigned_entries.push(entry.clone());
+            }
+        }
+        if assigned_entries.len() < 2 {
+            anyhow::bail!("Not enough papers to split this category.");
+        }
+        let suggestion = split::suggest_split(&record, &assigned_entries, rule);
+        store.delete(&record.definition.category_id)?;
+        for child in &suggestion.children {
+            store.save(&child.record)?;
+            let child_assignments: Vec<CategoryAssignment> = child
+                .paper_ids
+                .iter()
+                .map(|paper_id| CategoryAssignment {
+                    assignment_id: Uuid::new_v4(),
+                    category_id: child.record.definition.category_id,
+                    paper_id: *paper_id,
+                    source: AssignmentSource::Auto,
+                    confidence: 0.7,
+                    status: AssignmentStatus::PendingReview,
+                    last_reviewed_at: None,
+                })
+                .collect();
+            assignments
+                .replace_category(&child.record.definition.category_id, &child_assignments)?;
+        }
+        let entries = self.manager.load_library_entries(&base)?;
+        generate_and_log_reports(&self.manager, &base, &entries)?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_edit(
+            &base,
+            CategoryEditEventDetails {
+                edit_type: CategoryEditType::Split,
+                category_ids: suggestion
+                    .children
+                    .iter()
+                    .map(|child| child.record.definition.category_id)
+                    .collect(),
+                snapshot_id: None,
+                details: serde_json::json!({ "parent": category_name, "rule": rule }),
+            },
+        )?;
+        Ok(format!(
+            "Split '{}' into {} child categories.",
+            category_name,
+            suggestion.children.len()
+        ))
+    }
+
+    pub fn category_undo(&mut self) -> Result<String> {
+        let base = self.active_base()?;
+        let store = CategoryStore::new(&base)?;
+        let assignments = CategoryAssignmentsIndex::new(&base)?;
+        let snapshot = CategorySnapshotStore::new(&base)?;
+        let latest = snapshot
+            .list()?
+            .into_iter()
+            .next()
+            .with_context(|| "No category snapshot available to undo.")?;
+        let started = Instant::now();
+        snapshot.restore(&latest.snapshot_id, &store, &assignments)?;
+        let entries = self.manager.load_library_entries(&base)?;
+        generate_and_log_reports(&self.manager, &base, &entries)?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_edit(
+            &base,
+            CategoryEditEventDetails {
+                edit_type: CategoryEditType::Undo,
+                category_ids: Vec::new(),
+                snapshot_id: Some(latest.snapshot_id),
+                details: serde_json::json!({ "reason": latest.reason }),
+            },
+        )?;
+        log.record_category_operation_metrics(
+            "category_undo",
+            started.elapsed().as_millis() as i64,
+            true,
+            serde_json::json!({ "snapshot_id": latest.snapshot_id }),
+        )?;
+        Ok("Restored previous category snapshot.".into())
+    }
+
+    pub fn category_narrative(
+        &mut self,
+        category_name: &str,
+        summary: Option<String>,
+        learning_prompts: Option<Vec<String>>,
+        notes: Option<Vec<String>>,
+        pinned_papers: Option<Vec<Uuid>>,
+        figure_gallery_enabled: Option<bool>,
+        ai_assist_approval: Option<&str>,
+    ) -> Result<String> {
+        let base = self.active_base()?;
+        if let Some(approval) = ai_assist_approval {
+            if approval.trim().is_empty() {
+                anyhow::bail!("AI assistance requires non-empty approval text.");
+            }
+            let scope = ConsentScope {
+                batch_id: None,
+                paper_ids: pinned_papers.clone().unwrap_or_default(),
+            };
+            require_remote_operation_consent(
+                &self.manager,
+                &base,
+                ConsentOperation::CategoryNarrativeSuggest,
+                approval,
+                scope,
+                serde_json::json!({ "category": category_name }),
+            )?;
+        }
+        let store = CategoryStore::new(&base)?;
+        let assignments = CategoryAssignmentsIndex::new(&base)?;
+        let snapshot = CategorySnapshotStore::new(&base)?;
+        snapshot.capture(&store, &assignments, "category_narrative")?;
+        let record = store
+            .find_by_name(category_name)?
+            .with_context(|| format!("Category '{}' not found", category_name))?;
+        let update = NarrativeUpdate {
+            summary,
+            learning_prompts,
+            notes,
+            pinned_papers,
+            figure_gallery_enabled,
+        };
+        let updated = apply_narrative_update(&store, &record.definition.category_id, update)?;
+        let entries = self.manager.load_library_entries(&base)?;
+        generate_and_log_reports(&self.manager, &base, &entries)?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_edit(
+            &base,
+            CategoryEditEventDetails {
+                edit_type: CategoryEditType::NarrativeEdit,
+                category_ids: vec![updated.definition.category_id],
+                snapshot_id: None,
+                details: serde_json::json!({
+                    "category": category_name,
+                    "pinned_count": updated.definition.pinned_papers.len(),
+                    "figure_gallery_enabled": updated.definition.figure_gallery_enabled
+                }),
+            },
+        )?;
+        Ok(format!(
+            "Updated narrative for '{}' and regenerated reports.",
+            category_name
+        ))
+    }
+
+    pub fn category_pin(
+        &mut self,
+        category_name: &str,
+        paper_id: Uuid,
+        pin: bool,
+    ) -> Result<String> {
+        let base = self.active_base()?;
+        let entries = self.manager.load_library_entries(&base)?;
+        if !entries.iter().any(|entry| entry.entry_id == paper_id) {
+            anyhow::bail!("Paper {} does not exist in this Base.", paper_id);
+        }
+        let store = CategoryStore::new(&base)?;
+        let assignments = CategoryAssignmentsIndex::new(&base)?;
+        let snapshot = CategorySnapshotStore::new(&base)?;
+        snapshot.capture(&store, &assignments, "category_pin")?;
+        let record = store
+            .find_by_name(category_name)?
+            .with_context(|| format!("Category '{}' not found", category_name))?;
+        let mut pinned = record.definition.pinned_papers.clone();
+        if pin {
+            if !pinned.contains(&paper_id) {
+                pinned.push(paper_id);
+            }
+        } else {
+            pinned.retain(|existing| existing != &paper_id);
+        }
+        let updated = apply_narrative_update(
+            &store,
+            &record.definition.category_id,
+            NarrativeUpdate {
+                pinned_papers: Some(pinned.clone()),
+                ..Default::default()
+            },
+        )?;
+        generate_and_log_reports(&self.manager, &base, &entries)?;
+        let log = OrchestrationLog::for_base(&base);
+        log.log_category_edit(
+            &base,
+            CategoryEditEventDetails {
+                edit_type: CategoryEditType::PinToggle,
+                category_ids: vec![updated.definition.category_id],
+                snapshot_id: None,
+                details: serde_json::json!({
+                    "category": category_name,
+                    "paper_id": paper_id,
+                    "pin": pin
+                }),
+            },
+        )?;
+        let verb = if pin { "Pinned" } else { "Unpinned" };
+        Ok(format!(
+            "{} paper {} for '{}'.",
+            verb, paper_id, category_name
+        ))
+    }
+
+    pub fn categories_status(&mut self, include_backlog: bool) -> Result<String> {
+        let base = self.active_base()?;
+        let entries = self.manager.load_library_entries(&base)?;
+        let store = CategoryStore::new(&base)?;
+        let categories = store.list()?;
+        let assignments_index = CategoryAssignmentsIndex::new(&base)?;
+        let assignments = assignments_index.list_all()?;
+        let summary =
+            CategoryMetricsCollector::collect(&entries, &categories, &assignments, include_backlog);
+        let metrics_store = CategoryMetricsStore::new(&base);
+        metrics_store.save(&summary.metrics)?;
+        let mut response = format!(
+            "Category status ({} categories, {} assignments):",
+            categories.len(),
+            assignments.len()
+        );
+        let name_map: HashMap<Uuid, String> = categories
+            .iter()
+            .map(|record| {
+                (
+                    record.definition.category_id,
+                    record.definition.name.clone(),
+                )
+            })
+            .collect();
+        let mut alerts = Vec::new();
+        for metric in &summary.metrics {
+            if let Some(category_id) = metric.category_id {
+                if metric.overload_ratio > 0.25 || metric.staleness_days > 30 {
+                    let name = name_map
+                        .get(&category_id)
+                        .cloned()
+                        .unwrap_or_else(|| category_id.to_string());
+                    alerts.push(format!(
+                        "{}: {} papers, staleness {}d, {:.0}% of library",
+                        name,
+                        metric.paper_count,
+                        metric.staleness_days,
+                        metric.overload_ratio * 100.0
+                    ));
+                }
+            }
+        }
+        if alerts.is_empty() {
+            response.push_str("\n- No overload or staleness alerts.");
+        } else {
+            response.push_str("\n- Alerts:\n");
+            for alert in alerts {
+                response.push_str(&format!("  * {}\n", alert));
+            }
+        }
+        if include_backlog {
+            if summary.backlog_segments.is_empty() {
+                response.push_str("\n- Backlog clear.");
+            } else {
+                response.push_str("\n- Backlog segments:\n");
+                for segment in summary.backlog_segments.iter().take(3) {
+                    response.push_str(&format!(
+                        "  * {} ({} uncategorized)\n",
+                        segment.label, segment.count
+                    ));
+                }
+            }
+        }
+        Ok(response.trim().to_string())
     }
 }
 

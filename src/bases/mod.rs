@@ -1,4 +1,8 @@
 pub mod categories;
+pub mod categories_assignments;
+pub mod categories_merge;
+pub mod categories_metrics;
+pub mod categories_narrative;
 pub mod categories_snapshot;
 mod config;
 mod fs_paths;
@@ -9,6 +13,10 @@ pub use categories::{
     CategoryProposalBatch, CategoryProposalPreview, CategoryProposalStore, CategoryRecord,
     CategoryStore,
 };
+pub use categories_assignments::move_papers;
+pub use categories_merge::{merge_categories, MergeOptions, MergeOutcome};
+pub use categories_metrics::{CategoryMetricsStore, CategoryStatusMetric};
+pub use categories_narrative::{apply_narrative_update, NarrativeUpdate};
 pub use categories_snapshot::{CategorySnapshot, CategorySnapshotStore};
 pub use config::{
     ensure_workspace_structure, workspace_root, AcquisitionSettings, AppConfig, IngestionSettings,

@@ -41,6 +41,9 @@ mod figure_extraction;
 mod history_undo;
 mod figure_reprocess_consent;
 mod categories_proposals;
+mod categories_editing;
+mod categories_status;
+mod categories_narratives;
 
 #[test]
 fn contracts_exist() {

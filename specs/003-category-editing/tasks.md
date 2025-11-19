@@ -81,14 +81,14 @@ description: "Tasks for categorization & editing workflows implementation"
 
 ### Implementation
 
-- [ ] T019 [P] [US2] Implement rename + slug update helpers in `src/bases/categories.rs`.
-- [ ] T020 [US2] Implement merge pipeline (merge assignments, pins, narratives) in `src/bases/categories_merge.rs`.
-- [ ] T021 [US2] Implement split suggestion engine + confirmation handling in `src/reports/categorization/split.rs`.
-- [ ] T022 [US2] Implement move/bulk assignment API in `src/bases/categories_assignments.rs`.
-- [ ] T023 [US2] Capture per-edit snapshots + single-step undo command in `src/orchestration/mod.rs`.
-- [ ] T024 [US2] Add chat commands `category rename/merge/split/move/undo` in `src/chat/mod.rs`.
-- [ ] T025 [US2] Update contracts for rename/merge/split/move endpoints in `specs/003-category-editing/contracts/categories.yaml`.
-- [ ] T026 [US2] Add integration test `tests/integration/categories_editing.rs` covering rename → merge → undo flow.
+- [X] T019 [P] [US2] Implement rename + slug update helpers in `src/bases/categories.rs`.
+- [X] T020 [US2] Implement merge pipeline (merge assignments, pins, narratives) in `src/bases/categories_merge.rs`.
+- [X] T021 [US2] Implement split suggestion engine + confirmation handling in `src/reports/categorization/split.rs`.
+- [X] T022 [US2] Implement move/bulk assignment API in `src/bases/categories_assignments.rs`.
+- [X] T023 [US2] Capture per-edit snapshots + single-step undo command in `src/orchestration/mod.rs`.
+- [X] T024 [US2] Add chat commands `category rename/merge/split/move/undo` in `src/chat/mod.rs`.
+- [X] T025 [US2] Update contracts for rename/merge/split/move endpoints in `specs/003-category-editing/contracts/categories.yaml`.
+- [X] T026 [US2] Add integration test `tests/integration/categories_editing.rs` covering rename → merge → undo flow.
 
 **Checkpoint**: Full editing toolbox with undo is available via chat/API, independently testable.
 
@@ -102,12 +102,12 @@ description: "Tasks for categorization & editing workflows implementation"
 
 ### Implementation
 
-- [ ] T027 [P] [US3] Implement `CategoryMetricsCollector` aggregating counts, staleness, overload ratios in `src/reports/categorization/status.rs`.
-- [ ] T028 [US3] Detect uncategorized backlog segments (topic inference + counts) in `src/reports/categorization/status.rs`.
-- [ ] T029 [US3] Persist latest metrics for history/reference in `src/bases/categories_metrics.rs`.
-- [ ] T030 [US3] Implement chat command `categories status` with actionable recommendations in `src/chat/mod.rs`.
-- [ ] T031 [US3] Extend contracts with `/categories/status` endpoint schema in `specs/003-category-editing/contracts/categories.yaml`.
-- [ ] T032 [US3] Add integration test `tests/integration/categories_status.rs` ensuring backlog and overload alerts render correctly.
+- [X] T027 [P] [US3] Implement `CategoryMetricsCollector` aggregating counts, staleness, overload ratios in `src/reports/categorization/status.rs`.
+- [X] T028 [US3] Detect uncategorized backlog segments (topic inference + counts) in `src/reports/categorization/status.rs`.
+- [X] T029 [US3] Persist latest metrics for history/reference in `src/bases/categories_metrics.rs`.
+- [X] T030 [US3] Implement chat command `categories status` with actionable recommendations in `src/chat/mod.rs`.
+- [X] T031 [US3] Extend contracts with `/categories/status` endpoint schema in `specs/003-category-editing/contracts/categories.yaml`.
+- [X] T032 [US3] Add integration test `tests/integration/categories_status.rs` ensuring backlog and overload alerts render correctly.
 
 **Checkpoint**: Researchers can independently inspect category health/backlog and act on recommendations.
 
@@ -121,12 +121,12 @@ description: "Tasks for categorization & editing workflows implementation"
 
 ### Implementation
 
-- [ ] T033 [P] [US4] Implement narrative diff/apply helpers (summary, prompts, notes) in `src/bases/categories_narrative.rs`.
-- [ ] T034 [US4] Add optional AI-assist flow with consent prompt and manifest write in `src/chat/mod.rs` + `src/orchestration/consent.rs`.
-- [ ] T035 [US4] Update pinned-paper ordering + figure gallery toggle persistence in `src/bases/categories.rs`.
-- [ ] T036 [US4] Update HTML report rendering to reflect narratives, pins, and gallery flags in `src/reports/mod.rs`.
-- [ ] T037 [US4] Implement chat command `category narrative` (edit + preview) and `category pin` shortcuts in `src/chat/mod.rs`.
-- [ ] T038 [US4] Add integration test `tests/integration/categories_narratives.rs` ensuring edits propagate to reports and consent logs.
+- [X] T033 [P] [US4] Implement narrative diff/apply helpers (summary, prompts, notes) in `src/bases/categories_narrative.rs`.
+- [X] T034 [US4] Add optional AI-assist flow with consent prompt and manifest write in `src/chat/mod.rs` + `src/orchestration/consent.rs`.
+- [X] T035 [US4] Update pinned-paper ordering + figure gallery toggle persistence in `src/bases/categories.rs`.
+- [X] T036 [US4] Update HTML report rendering to reflect narratives, pins, and gallery flags in `src/reports/mod.rs`.
+- [X] T037 [US4] Implement chat command `category narrative` (edit + preview) and `category pin` shortcuts in `src/chat/mod.rs`.
+- [X] T038 [US4] Add integration test `tests/integration/categories_narratives.rs` ensuring edits propagate to reports and consent logs.
 
 **Checkpoint**: Narrative and pin management works end-to-end with regeneration and consent handling.
 
@@ -134,10 +134,10 @@ description: "Tasks for categorization & editing workflows implementation"
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T039 [P] Harden error messaging & conflict detection for concurrent edits in `src/chat/mod.rs`.
-- [ ] T040 Document health metrics + undo usage in `specs/003-category-editing/quickstart.md`.
-- [ ] T041 Add telemetry/metrics entries for proposal/undo durations in `src/orchestration/mod.rs`.
-- [ ] T042 Run end-to-end regression script (us1→us4) and capture notes in `specs/003-category-editing/research.md`.
+- [X] T039 [P] Harden error messaging & conflict detection for concurrent edits in `src/chat/mod.rs`.
+- [X] T040 Document health metrics + undo usage in `specs/003-category-editing/quickstart.md`.
+- [X] T041 Add telemetry/metrics entries for proposal/undo durations in `src/orchestration/mod.rs`.
+- [X] T042 Run end-to-end regression script (us1→us4) and capture notes in `specs/003-category-editing/research.md`.
 
 ---
 

@@ -72,6 +72,17 @@ paths:
       responses:
         '200':
           description: Category renamed and reports updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  category_id:
+                    type: string
+                  name:
+                    type: string
+                  slug:
+                    type: string
   /bases/{baseId}/categories/merge:
     post:
       summary: Merge two or more categories
@@ -95,6 +106,17 @@ paths:
       responses:
         '200':
           description: Merge completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  target_category_id:
+                    type: string
+                  merged_source_ids:
+                    type: array
+                    items:
+                      type: string
   /bases/{baseId}/categories/split:
     post:
       summary: Split a category by rule
@@ -111,8 +133,24 @@ paths:
                   type: string
                   description: e.g., "methodology", "year"
       responses:
-        '202':
-          description: Split suggestions queued for confirmation
+        '200':
+          description: Split completed with immediate child categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parent_category_id:
+                    type: string
+                  children:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        category_id:
+                          type: string
+                        name:
+                          type: string
   /bases/{baseId}/categories/move-paper:
     post:
       summary: Move or bulk-assign papers
@@ -135,6 +173,13 @@ paths:
       responses:
         '200':
           description: Assignment updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  moved_count:
+                    type: integer
   /bases/{baseId}/categories/{categoryId}/narrative:
     post:
       summary: Update category narrative or pinned papers
@@ -177,3 +222,13 @@ paths:
       responses:
         '200':
           description: Previous snapshot restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot_id:
+                    type: string
+                  restored_at:
+                    type: string
+                    format: date-time

@@ -306,6 +306,23 @@ impl OrchestrationLog {
         Ok(metrics)
     }
 
+    pub fn record_category_operation_metrics(
+        &self,
+        operation: &str,
+        duration_ms: i64,
+        success: bool,
+        details: serde_json::Value,
+    ) -> Result<()> {
+        self.record_metric(&MetricRecord::CategoryOperation(
+            CategoryOperationMetricsRecord {
+                operation: operation.to_string(),
+                duration_ms,
+                success,
+                details,
+            },
+        ))
+    }
+
     fn append_structured_event<T: Serialize>(
         &self,
         base: &Base,
@@ -426,6 +443,16 @@ pub enum MetricRecord {
     Ingestion(IngestionMetricsRecord),
     Reports(ReportMetricsRecord),
     Figure(FigureMetricsRecord),
+    CategoryOperation(CategoryOperationMetricsRecord),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryOperationMetricsRecord {
+    pub operation: String,
+    pub duration_ms: i64,
+    pub success: bool,
+    #[serde(default)]
+    pub details: serde_json::Value,
 }
 
 /// Structured payload describing a category proposal batch or acceptance.

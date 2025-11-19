@@ -119,6 +119,27 @@ impl CategoryStore {
         Ok(Some(record))
     }
 
+    pub fn find_by_name(&self, name: &str) -> Result<Option<CategoryRecord>> {
+        Ok(self
+            .list()?
+            .into_iter()
+            .find(|record| record.definition.name.eq_ignore_ascii_case(name)))
+    }
+
+    pub fn name_exists(&self, name: &str, exclude: Option<&Uuid>) -> Result<bool> {
+        for record in self.list()? {
+            if let Some(exclude_id) = exclude {
+                if &record.definition.category_id == exclude_id {
+                    continue;
+                }
+            }
+            if record.definition.name.eq_ignore_ascii_case(name) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub fn save(&self, record: &CategoryRecord) -> Result<()> {
         let mut to_write = record.clone();
         to_write.definition.base_id = self.base_id;
@@ -138,6 +159,20 @@ impl CategoryStore {
             fs::remove_file(&path).with_context(|| format!("Failed to delete {:?}", path))?;
         }
         Ok(())
+    }
+
+    pub fn rename(&self, category_id: &Uuid, new_name: &str) -> Result<CategoryRecord> {
+        let mut record = self
+            .get(category_id)?
+            .with_context(|| format!("Category {:?} not found", category_id))?;
+        record.definition.name = new_name.to_string();
+        record.definition.slug = category_slug(new_name);
+        self.save(&record)?;
+        Ok(record)
+    }
+
+    pub fn base_id(&self) -> Uuid {
+        self.base_id
     }
 }
 

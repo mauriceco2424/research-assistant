@@ -26,9 +26,17 @@
   - *Implicit consent reuse from ingestion metadata*: Would blur operation boundaries and weaken audit trails.
   - *Always-on AI assistance*: Violates user expectation for manual control and offline reliability.
 
-### Decision 4 – Category Health Metrics
+### Decision 4 - Category Health Metrics
 - **Decision**: `categories status` pulls metrics from AI-layer assignment files plus orchestration timestamps to flag stale categories (>30 days), overloaded categories (>25% of Base), and uncategorized backlog segments grouped by inferred topic.
 - **Rationale**: Provides quantifiable signals for success criteria SC-004 and keeps calculations local/offline.
 - **Alternatives Considered**:
   - *Real-time DB queries*: Not available in current architecture.
-  - *Manual tally in chat*: Error-prone and not scalable for 10k-paper Bases.
+- *Manual tally in chat*: Error-prone and not scalable for 10k-paper Bases.
+
+### Regression Notes
+- Verified end-to-end flows via new integration suites:
+  - `categories_proposals.rs` for propose/apply/report regeneration.
+  - `categories_editing.rs` for rename → merge → undo safety.
+  - `categories_status.rs` for metrics/backlog alerts persistence.
+  - `categories_narratives.rs` for narrative/pin edits plus consent logging.
+  These scripts ensure regressions surface whenever chat commands, storage, or reports drift out of sync.

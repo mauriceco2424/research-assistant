@@ -24,13 +24,14 @@
 4. Move specific papers using `category move-paper <paper-id> --to "<target>"` (supporting multiple IDs).
 
 ## 3. Maintain Narratives & Pins
-1. Update narratives using `category narrative "<name>"` to provide new summaries, learning prompts, or manual notes.  
-2. Pin or unpin papers inside the same command; pinned entries float to the top of chat summaries and HTML category reports.  
-3. Toggle figure galleries per category to respect consented assets.
+1. Update narratives using `category narrative "<name>" --summary "..." --prompts "A;B"` to provide new summaries, learning prompts, or manual notes.  
+2. Pass `--ai-approval "<consent text>"` when you want remote assistance; the consent manifest is logged per ResearchBase guidelines.  
+3. Pin or unpin papers with either the narrative command (`--pin paper-id`) or `category pin <name> <paper-id> --add/--remove`; pinned entries float to the top of chat summaries and HTML category reports.  
+4. Toggle figure galleries per category (`--gallery on/off`) to respect consented assets.
 
 ## 4. Monitor Category Health
-1. Run `categories status` to see counts, pinned highlights, staleness, and uncategorized backlog.  
-2. Follow the suggested quick actions (auto-cluster backlog, open merge wizard, etc.) to resolve flagged issues before proceeding.
+1. Run `categories status` to see category counts, pinned highlights, staleness, and uncategorized backlog segments (grouped by venue/topic).  
+2. Metrics are stored per Base so you can compare previous runs; review alerts for overloaded/stale categories and resolve with rename/merge/split actions before proceeding.
 
 ## 5. Undo & Audit
 1. Use `category undo` to revert the most recent edit batch (rename, merge, narrative, move).  
