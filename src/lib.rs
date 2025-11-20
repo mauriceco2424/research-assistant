@@ -3,7 +3,10 @@ pub mod bases;
 pub mod chat;
 pub mod ingestion;
 pub mod orchestration;
+pub mod profiles;
 pub mod reports;
+pub mod storage;
+pub mod writing;
 
 // Re-export commonly used types for convenience.
 pub use acquisition::CandidatePaper;

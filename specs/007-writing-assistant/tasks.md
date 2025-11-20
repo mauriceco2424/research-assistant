@@ -11,9 +11,9 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Ensure `src/writing/` module tree exists with placeholders in `src/writing/mod.rs`
-- [ ] T002 Add `tectonic` + fallback compiler configuration entries to `src/bin/setup.rs`
-- [ ] T003 [P] Add documentation stub in `docs/writing-assistant.md` summarizing project lifecycle commands
+- [X] T001 Ensure `src/writing/` module tree exists with placeholders in `src/writing/mod.rs`
+- [X] T002 Add `tectonic` + fallback compiler configuration entries to `src/bin/setup.rs`
+- [X] T003 [P] Add documentation stub in `docs/writing-assistant.md` summarizing project lifecycle commands
 
 ---
 
@@ -21,11 +21,11 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-- [ ] T004 Implement WritingProject manifest loader/saver in `src/writing/project.rs`
-- [ ] T005 [P] Extend AI-layer storage helpers in `src/storage/ai_layer.rs` for outline/draft/undo payloads
-- [ ] T006 Wire orchestration event enums + logging scaffolds for writing ops in `src/orchestration/events.rs`
-- [ ] T007 Create WritingProfile/style model access APIs in `src/profiles/writing_profile.rs`
-- [ ] T008 Add chat intent routing stubs for writing commands in `src/chat/intent_routing.rs`
+- [X] T004 Implement WritingProject manifest loader/saver in `src/writing/project.rs`
+- [X] T005 [P] Extend AI-layer storage helpers in `src/storage/ai_layer.rs` for outline/draft/undo payloads
+- [X] T006 Wire orchestration event enums + logging scaffolds for writing ops in `src/orchestration/events.rs`
+- [X] T007 Create WritingProfile/style model access APIs in `src/profiles/writing_profile.rs`
+- [X] T008 Add chat intent routing stubs for writing commands in `src/chat/intent_routing.rs`
 
 **Checkpoint**: Foundation ready – user story implementation can now begin in parallel.
 

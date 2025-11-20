@@ -149,3 +149,115 @@ fn log_intent_event(
     log.append_event(&event)?;
     Ok(event.event_id)
 }
+
+/// Structured payload logged for writing assistant operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WritingEventDetails {
+    pub project_slug: String,
+    #[serde(default)]
+    pub files_touched: Vec<String>,
+    #[serde(default)]
+    pub undo_checkpoint_path: Option<String>,
+    #[serde(default)]
+    pub consent_token: Option<String>,
+    #[serde(default)]
+    pub prompt_manifest_path: Option<String>,
+    #[serde(default)]
+    pub payload: serde_json::Value,
+}
+
+impl WritingEventDetails {
+    pub fn new(project_slug: impl Into<String>) -> Self {
+        Self {
+            project_slug: project_slug.into(),
+            files_touched: Vec::new(),
+            undo_checkpoint_path: None,
+            consent_token: None,
+            prompt_manifest_path: None,
+            payload: serde_json::Value::Null,
+        }
+    }
+
+    pub fn with_payload(project_slug: impl Into<String>, payload: serde_json::Value) -> Self {
+        let mut details = Self::new(project_slug);
+        details.payload = payload;
+        details
+    }
+
+    pub fn with_files_touched<I, S>(mut self, files: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.files_touched = files.into_iter().map(Into::into).collect();
+        self
+    }
+
+    pub fn with_undo_checkpoint(mut self, checkpoint: impl Into<String>) -> Self {
+        self.undo_checkpoint_path = Some(checkpoint.into());
+        self
+    }
+
+    pub fn with_consent_token(mut self, token: impl Into<String>) -> Self {
+        self.consent_token = Some(token.into());
+        self
+    }
+
+    pub fn with_prompt_manifest(mut self, path: impl Into<String>) -> Self {
+        self.prompt_manifest_path = Some(path.into());
+        self
+    }
+}
+
+pub fn log_writing_project_created(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingProjectCreated, details)
+}
+
+pub fn log_style_model_ingested(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingStyleModelIngested, details)
+}
+
+pub fn log_outline_created(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingOutlineCreated, details)
+}
+
+pub fn log_outline_modified(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingOutlineModified, details)
+}
+
+pub fn log_draft_generated(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingDraftGenerated, details)
+}
+
+pub fn log_section_edited(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingSectionEdited, details)
+}
+
+pub fn log_citation_flagged(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingCitationFlagged, details)
+}
+
+pub fn log_compile_attempted(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingCompileAttempted, details)
+}
+
+pub fn log_writing_undo_applied(base: &Base, details: WritingEventDetails) -> Result<Uuid> {
+    log_writing_event(base, EventType::WritingUndoApplied, details)
+}
+
+fn log_writing_event(
+    base: &Base,
+    event_type: EventType,
+    details: WritingEventDetails,
+) -> Result<Uuid> {
+    let event = OrchestrationEvent {
+        event_id: Uuid::new_v4(),
+        base_id: base.id,
+        event_type,
+        timestamp: Utc::now(),
+        details: serde_json::to_value(details)?,
+    };
+    let log = OrchestrationLog::for_base(base);
+    log.append_event(&event)?;
+    Ok(event.event_id)
+}

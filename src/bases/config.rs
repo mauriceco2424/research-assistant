@@ -25,6 +25,9 @@ pub struct AppConfig {
     /// Categorization proposal knobs (cluster limits, worker timeout).
     #[serde(default)]
     pub categorization: CategorizationSettings,
+    /// Writing Assistant specific defaults (compiler preferences, etc.).
+    #[serde(default)]
+    pub writing: WritingSettings,
 }
 
 /// Acquisition-related preferences tied to the local install.
@@ -117,6 +120,51 @@ const fn default_max_proposals() -> u32 {
 
 const fn default_proposal_timeout_ms() -> u64 {
     120_000
+}
+
+/// Writing Assistant compiler defaults and overrides.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WritingSettings {
+    /// Preferred compiler command (tectonic by default).
+    #[serde(default = "default_primary_compiler")]
+    pub primary_compiler: CompilerBinary,
+    /// Fallback compiler command (pdflatex by default).
+    #[serde(default = "default_fallback_compiler")]
+    pub fallback_compiler: CompilerBinary,
+}
+
+impl Default for WritingSettings {
+    fn default() -> Self {
+        Self {
+            primary_compiler: default_primary_compiler(),
+            fallback_compiler: default_fallback_compiler(),
+        }
+    }
+}
+
+/// Represents an invocable compiler + optional args.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompilerBinary {
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+}
+
+impl CompilerBinary {
+    pub fn new(command: impl Into<String>) -> Self {
+        Self {
+            command: command.into(),
+            args: Vec::new(),
+        }
+    }
+}
+
+fn default_primary_compiler() -> CompilerBinary {
+    CompilerBinary::new("tectonic")
+}
+
+fn default_fallback_compiler() -> CompilerBinary {
+    CompilerBinary::new("pdflatex")
 }
 
 /// Standard relative path to the config file (resolved per OS at runtime).

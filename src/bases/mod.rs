@@ -21,8 +21,9 @@ pub use categories_metrics::{CategoryMetricsStore, CategoryStatusMetric};
 pub use categories_narrative::{apply_narrative_update, NarrativeUpdate};
 pub use categories_snapshot::{CategorySnapshot, CategorySnapshotStore};
 pub use config::{
-    ensure_workspace_structure, workspace_root, AcquisitionSettings, AppConfig, IngestionSettings,
-    WorkspacePaths,
+    config_file_path, ensure_workspace_structure, load_or_default, save, workspace_root,
+    AcquisitionSettings, AppConfig, CompilerBinary, IngestionSettings, WorkspacePaths,
+    WritingSettings,
 };
 pub use fs_paths::{ensure_category_dirs, CategoryPaths};
 pub use layout::{

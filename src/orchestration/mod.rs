@@ -51,6 +51,24 @@ pub enum EventType {
     CategoryProposalsGenerated,
     CategoryProposalsApplied,
     CategoryEdit,
+    #[serde(rename = "project_created")]
+    WritingProjectCreated,
+    #[serde(rename = "style_model_ingested")]
+    WritingStyleModelIngested,
+    #[serde(rename = "outline_created")]
+    WritingOutlineCreated,
+    #[serde(rename = "outline_modified")]
+    WritingOutlineModified,
+    #[serde(rename = "draft_generated")]
+    WritingDraftGenerated,
+    #[serde(rename = "section_edited")]
+    WritingSectionEdited,
+    #[serde(rename = "citation_flagged")]
+    WritingCitationFlagged,
+    #[serde(rename = "compile_attempted")]
+    WritingCompileAttempted,
+    #[serde(rename = "undo_applied")]
+    WritingUndoApplied,
     ProfileChange,
     IntentDetected,
     IntentConfirmed,

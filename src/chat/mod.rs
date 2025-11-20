@@ -1278,6 +1278,9 @@ impl IntentExecutor for ChatSession {
             "profile.show" => self.execute_profile_show_intent(payload),
             "profile.delete" => self.execute_profile_delete_intent(payload),
             "profile.remote_infer" => self.execute_remote_infer_intent(payload),
+            other if other.starts_with("writing.") => Ok(format!(
+                "Writing command '{other}' acknowledged (implementation pending)."
+            )),
             other => bail!("Unknown intent action '{other}'"),
         }
     }
