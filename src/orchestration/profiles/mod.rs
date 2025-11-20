@@ -16,3 +16,4 @@ pub mod scope;
 pub mod interview;
 pub mod render;
 pub mod governance;
+pub mod regenerate;

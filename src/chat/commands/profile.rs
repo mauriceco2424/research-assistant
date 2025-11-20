@@ -2,15 +2,20 @@
 //!
 //! Converts chat-friendly requests into service calls and user-facing summaries.
 
-use std::path::PathBuf;
+use std::{fmt::Write as _, path::PathBuf};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use crate::{
     bases::{Base, BaseManager},
-    orchestration::profiles::service::{
-        ProfileFieldChange, ProfileInterviewOptions, ProfileInterviewOutcome,
-        ProfileInterviewStatus, ProfileService, ProfileShowOutput, ProfileUpdateOutput,
+    orchestration::profiles::{
+        governance::{ProfileAuditLog, ProfileDeleteResult, ProfileExportResult, ProfileGovernance},
+        model::{ProfileScopeMode, ProfileScopeSetting},
+        regenerate::{ProfileRegenerateOutcome, ProfileRegenerator},
+        service::{
+            ProfileFieldChange, ProfileInterviewOptions, ProfileInterviewOutcome,
+            ProfileInterviewStatus, ProfileService, ProfileShowOutput, ProfileUpdateOutput,
+        },
     },
 };
 
@@ -75,31 +80,65 @@ impl<'a> ProfileCommandBridge<'a> {
         self.interview(base, interview_request)
     }
 
-    pub fn audit(&self, _base: &Base, request: ProfileAuditRequest) -> Result<String> {
-        placeholder_response("audit", &request.profile_type)
+    pub fn audit(&self, base: &Base, request: ProfileAuditRequest) -> Result<String> {
+        let service = ProfileService::new(self.manager, base);
+        let profile_type = service.parse_type(&request.profile_type)?;
+        let governance = ProfileGovernance::new(self.manager, base);
+        let log = governance.audit(profile_type)?;
+        Ok(format_audit_response(&log, request.include_undo_instructions))
     }
 
-    pub fn export(&self, _base: &Base, request: ProfileExportRequest) -> Result<String> {
-        placeholder_response("export", &request.profile_type)
+    pub fn export(&self, base: &Base, request: ProfileExportRequest) -> Result<String> {
+        let service = ProfileService::new(self.manager, base);
+        let profile_type = service.parse_type(&request.profile_type)?;
+        let governance = ProfileGovernance::new(self.manager, base);
+        let result = governance.export(
+            profile_type,
+            request.destination.clone(),
+            request.include_history,
+        )?;
+        Ok(format_export_response(&result, request.include_history))
     }
 
-    pub fn delete(&self, _base: &Base, request: ProfileDeleteRequest) -> Result<String> {
-        placeholder_response("delete", &request.profile_type)
+    pub fn delete(&self, base: &Base, request: ProfileDeleteRequest) -> Result<String> {
+        let service = ProfileService::new(self.manager, base);
+        let profile_type = service.parse_type(&request.profile_type)?;
+        let confirm = request
+            .confirm_phrase
+            .as_deref()
+            .context("profile delete requires --confirm DELETE <type>.")?;
+        let governance = ProfileGovernance::new(self.manager, base);
+        let result = governance.delete(profile_type, confirm)?;
+        Ok(format_delete_response(&result))
     }
 
-    pub fn regenerate(&self, _base: &Base, request: ProfileRegenerateRequest) -> Result<String> {
-        placeholder_response("regenerate", &request.profile_type)
+    pub fn regenerate(&self, base: &Base, request: ProfileRegenerateRequest) -> Result<String> {
+        let service = ProfileService::new(self.manager, base);
+        let profile_type = service.parse_type(&request.profile_type)?;
+        let regenerator = ProfileRegenerator::new(self.manager, base);
+        let outcome = match &request.source {
+            ProfileRegenerateSource::History => regenerator.from_history(profile_type)?,
+            ProfileRegenerateSource::Archive(path) => {
+                regenerator.from_archive(profile_type, path.as_path())?
+            }
+        };
+        Ok(format_regenerate_response(&outcome, &request.source))
     }
 
-    pub fn scope(&self, _base: &Base, request: ProfileScopeRequest) -> Result<String> {
-        placeholder_response("scope", &request.profile_type)
+    pub fn scope(&self, base: &Base, request: ProfileScopeRequest) -> Result<String> {
+        let service = ProfileService::new(self.manager, base);
+        let profile_type = service.parse_type(&request.profile_type)?;
+        let governance = ProfileGovernance::new(self.manager, base);
+        if let Some(mode_raw) = &request.scope_mode {
+            let mode = parse_scope_mode(mode_raw)?;
+            let status =
+                governance.update_scope(profile_type, mode, request.allowed_bases.clone())?;
+            Ok(format_scope_response(&status.setting, status.event_id))
+        } else {
+            let setting = governance.scope_status(profile_type)?;
+            Ok(format_scope_response(&setting, None))
+        }
     }
-}
-
-fn placeholder_response(command: &str, profile_type: &str) -> Result<String> {
-    Ok(format!(
-        "profile {command} {profile_type} is not available yet."
-    ))
 }
 
 fn format_show_response(output: &ProfileShowOutput, include_history: bool) -> String {
@@ -204,6 +243,147 @@ fn parse_field_changes(raw: &[String]) -> Result<Vec<ProfileFieldChange>> {
         bail!("No field changes provided. Use key=value syntax.");
     }
     Ok(changes)
+}
+
+fn format_audit_response(log: &ProfileAuditLog, include_undo: bool) -> String {
+    let mut response = String::new();
+    let _ = writeln!(
+        &mut response,
+        "Profile audit for {:?} ({} entries)",
+        log.profile_type,
+        log.entries.len()
+    );
+    let _ = writeln!(
+        &mut response,
+        "Generated at {}",
+        log.generated_at.to_rfc3339()
+    );
+    if log.entries.is_empty() {
+        response.push_str("No profile events recorded yet.");
+        return response;
+    }
+    for entry in &log.entries {
+        let _ = writeln!(
+            &mut response,
+            "- {} {:?} (event {})",
+            entry.timestamp.to_rfc3339(),
+            entry.change_kind,
+            entry.event_id
+        );
+        for diff in &entry.diff_summary {
+            let _ = writeln!(&mut response, "  * {diff}");
+        }
+        if let Some(hash) = &entry.hash_after {
+            let _ = writeln!(&mut response, "  hash: {hash}");
+        }
+        if include_undo {
+            if let Some(undo) = &entry.undo_token {
+                let _ = writeln!(&mut response, "  undo: {undo}");
+            }
+        }
+    }
+    response.trim().to_string()
+}
+
+fn format_export_response(result: &ProfileExportResult, include_history: bool) -> String {
+    let mut response = String::new();
+    let _ = writeln!(
+        &mut response,
+        "Exported {:?} profile to {}",
+        result.profile_type,
+        result.archive_path.display()
+    );
+    let _ = writeln!(
+        &mut response,
+        "Archive hash: {}\nEvent ID: {}",
+        result.hash,
+        result.event_id
+    );
+    if include_history {
+        response.push_str("Included audit log in archive.");
+    }
+    response.trim().to_string()
+}
+
+fn format_delete_response(result: &ProfileDeleteResult) -> String {
+    let mut response = String::new();
+    let _ = writeln!(
+        &mut response,
+        "Deleted {:?} profile artifacts.",
+        result.profile_type
+    );
+    if result.files_removed.is_empty() {
+        response.push_str("No files were removed.");
+    } else {
+        response.push_str("Removed files:");
+        for path in &result.files_removed {
+            let _ = writeln!(&mut response, "\n- {}", path.display());
+        }
+    }
+    let _ = writeln!(&mut response, "\nEvent ID: {}", result.event_id);
+    response.trim().to_string()
+}
+
+fn format_regenerate_response(
+    outcome: &ProfileRegenerateOutcome,
+    source: &ProfileRegenerateSource,
+) -> String {
+    let mut response = String::new();
+    let from = match source {
+        ProfileRegenerateSource::History => "history replay".to_string(),
+        ProfileRegenerateSource::Archive(path) => {
+            format!("archive {}", path.display())
+        }
+    };
+    let _ = writeln!(
+        &mut response,
+        "Regenerated {:?} profile from {from}.",
+        outcome.profile_type
+    );
+    let _ = writeln!(
+        &mut response,
+        "Replayed events: {}\nFinal hash: {}\nEvent ID: {}",
+        outcome.replayed_events,
+        outcome.hash_after,
+        outcome.event_id
+    );
+    response.trim().to_string()
+}
+
+fn format_scope_response(setting: &ProfileScopeSetting, event_id: Option<uuid::Uuid>) -> String {
+    let mut response = String::new();
+    let _ = writeln!(
+        &mut response,
+        "Scope for {:?}: {:?}",
+        setting.profile_type, setting.scope_mode
+    );
+    if setting.allowed_bases.is_empty() {
+        response.push_str("Allowed bases: (none)\n");
+    } else {
+        let _ = writeln!(
+            &mut response,
+            "Allowed bases: {}",
+            setting.allowed_bases.join(", ")
+        );
+    }
+    let _ = writeln!(
+        &mut response,
+        "Last updated: {}",
+        setting.updated_at.to_rfc3339()
+    );
+    if let Some(event_id) = event_id {
+        let _ = writeln!(&mut response, "Event ID: {event_id}");
+    }
+    response.trim().to_string()
+}
+
+fn parse_scope_mode(raw: &str) -> Result<ProfileScopeMode> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "this-base" | "this_base" | "thisbase" | "local" => Ok(ProfileScopeMode::ThisBase),
+        "shared" => Ok(ProfileScopeMode::Shared),
+        "disabled" => Ok(ProfileScopeMode::Disabled),
+        other => bail!("Unknown scope mode '{other}'. Use this-base|shared|disabled."),
+    }
 }
 
 #[derive(Debug, Clone, Default)]

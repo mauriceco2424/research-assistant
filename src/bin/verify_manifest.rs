@@ -42,7 +42,7 @@ fn main() -> Result<()> {
         Ok(())
     } else {
         println!("Manifest verification failed:");
-        for failure in failures {
+        for failure in &failures {
             println!("  - {}", failure);
         }
         anyhow::bail!(

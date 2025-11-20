@@ -16,6 +16,17 @@ pub enum ProfileType {
     Knowledge,
 }
 
+impl ProfileType {
+    pub fn slug(self) -> &'static str {
+        match self {
+            ProfileType::User => "user",
+            ProfileType::Work => "work",
+            ProfileType::Writing => "writing",
+            ProfileType::Knowledge => "knowledge",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProfileScopeMode {

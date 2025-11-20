@@ -50,6 +50,7 @@ mod reports_configure;
 mod profile_knowledge_ready;
 mod profile_interview;
 mod profile_show_update;
+mod profile_governance;
 pub mod support;
 
 #[test]

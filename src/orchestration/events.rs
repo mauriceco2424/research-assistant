@@ -40,12 +40,23 @@ impl ProfileEventDetails {
 }
 
 pub fn log_profile_event(
-    _manager: &BaseManager,
+    manager: &BaseManager,
     base: &Base,
     details: ProfileEventDetails,
 ) -> Result<Uuid> {
+    let event_id = Uuid::new_v4();
+    log_profile_event_with_id(manager, base, event_id, details)?;
+    Ok(event_id)
+}
+
+pub fn log_profile_event_with_id(
+    _manager: &BaseManager,
+    base: &Base,
+    event_id: Uuid,
+    details: ProfileEventDetails,
+) -> Result<Uuid> {
     let event = OrchestrationEvent {
-        event_id: Uuid::new_v4(),
+        event_id,
         base_id: base.id,
         event_type: EventType::ProfileChange,
         timestamp: Utc::now(),

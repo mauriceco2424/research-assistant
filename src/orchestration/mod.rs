@@ -7,7 +7,7 @@ pub mod profiles;
 pub use consent::{
     require_remote_operation_consent, ConsentManifest, ConsentOperation, ConsentScope, ConsentStore,
 };
-pub use events::{log_profile_event, ProfileEventDetails};
+pub use events::{log_profile_event, log_profile_event_with_id, ProfileEventDetails};
 pub use learning::interface::LearningInterface;
 pub use report_progress::ReportProgressTracker;
 
@@ -26,7 +26,7 @@ pub const INGESTION_SLA_SECS: i64 = 5 * 60;
 pub const REPORT_SLA_SECS: i64 = 60;
 
 /// Type of orchestration events that can be logged.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum EventType {
     BaseCreated,

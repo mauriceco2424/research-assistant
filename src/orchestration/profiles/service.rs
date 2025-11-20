@@ -26,7 +26,7 @@ use crate::orchestration::{
         },
         render::build_profile_html,
         scope::ProfileScopeStore,
-        storage::{read_profile, write_profile, write_profile_html},
+        storage::{compute_hash, read_profile, write_profile, write_profile_html},
         summarize::{summarize_knowledge, summarize_user, summarize_work, summarize_writing},
     },
     ProfileEventDetails,
@@ -158,13 +158,13 @@ impl<'a> ProfileService<'a> {
             &summary.highlights,
             &summary.fields,
         );
-        let html_path = write_profile_html(self.layout.profile_html(slug(profile_type)), &html)?;
+        let html_path = write_profile_html(self.layout.profile_html(profile_type.slug()), &html)?;
         Ok(ProfileShowOutput {
             profile_type,
             metadata: profile.metadata().clone(),
             summary,
             history_preview: profile.history().last().cloned(),
-            json_path: self.layout.profile_json(slug(profile_type)),
+            json_path: self.layout.profile_json(profile_type.slug()),
             html_path,
         })
     }
@@ -363,16 +363,17 @@ impl<'a> ProfileService<'a> {
         }
         profile.metadata_mut().last_updated = Utc::now();
         let summary = summarizer(profile);
-        let json_path = self.layout.profile_json(slug(profile_type));
-        let write_outcome = write_profile(&json_path, profile)?;
-        let html = build_profile_html(
+        let json_path = self.layout.profile_json(profile_type.slug());
+        let html_output = build_profile_html(
             profile_type,
             profile.metadata(),
             &summary.highlights,
             &summary.fields,
         );
-        let html_path = write_profile_html(self.layout.profile_html(slug(profile_type)), &html)?;
-        let event_payload = wrap_payload_with_path(&json_path, payload);
+        let canonical_snapshot = snapshot_without_history(profile)?;
+        let canonical_bytes = serde_json::to_vec(&canonical_snapshot)?;
+        let hash_after = compute_hash(&canonical_bytes);
+        let event_payload = wrap_payload_with_snapshot(&json_path, payload, canonical_snapshot);
         let event_id = log_profile_event(
             self.manager,
             &self.base,
@@ -381,7 +382,7 @@ impl<'a> ProfileService<'a> {
                 change_kind,
                 diff_summary: diff_summary.clone(),
                 hash_before,
-                hash_after: Some(write_outcome.hash.clone()),
+                hash_after: Some(hash_after.clone()),
                 undo_token: None,
                 payload: event_payload,
             },
@@ -389,16 +390,17 @@ impl<'a> ProfileService<'a> {
         profile.history_mut().push(HistoryRef {
             event_id,
             timestamp: Utc::now(),
-            hash_after: write_outcome.hash.clone(),
+            hash_after: hash_after.clone(),
         });
-        let _ = write_profile(&json_path, profile)?;
+        write_profile(&json_path, profile)?;
+        let html_path = write_profile_html(self.layout.profile_html(profile_type.slug()), &html_output)?;
         Ok(ProfileUpdateOutput {
             profile_type,
             event_id,
             diff_summary,
             json_path,
             html_path,
-            hash_after: write_outcome.hash,
+            hash_after,
         })
     }
 
@@ -516,14 +518,15 @@ impl<'a> ProfileService<'a> {
     }
 }
 
-fn wrap_payload_with_path(path: &PathBuf, payload: Value) -> Value {
-    if payload.is_null() {
-        json!({ "path": path })
-    } else {
-        json!({
+fn wrap_payload_with_snapshot(path: &PathBuf, payload: Value, snapshot: Value) -> Value {
+    match payload {
+        Value::Null => json!({ "path": path, "snapshot": snapshot }),
+        Value::Object(map) if map.is_empty() => json!({ "path": path, "snapshot": snapshot }),
+        other => json!({
             "path": path,
-            "details": payload
-        })
+            "snapshot": snapshot,
+            "details": other
+        }),
     }
 }
 
@@ -621,24 +624,23 @@ fn split_list(value: &str) -> Vec<String> {
         .collect()
 }
 
-fn slug(profile_type: ProfileType) -> &'static str {
-    match profile_type {
-        ProfileType::User => "user",
-        ProfileType::Work => "work",
-        ProfileType::Writing => "writing",
-        ProfileType::Knowledge => "knowledge",
-    }
+fn canonical_snapshot<P>(profile: &P) -> Option<String>
+where
+    P: Serialize + Clone + HasHistory,
+{
+    snapshot_without_history(profile)
+        .ok()
+        .and_then(|value| serde_json::to_vec(&value).ok())
+        .map(|bytes| compute_hash(&bytes))
 }
 
-fn canonical_snapshot<P>(profile: &P) -> Option<String>
+fn snapshot_without_history<P>(profile: &P) -> Result<Value>
 where
     P: Serialize + Clone + HasHistory,
 {
     let mut clone = profile.clone();
     clone.history_mut().clear();
-    serde_json::to_vec(&clone)
-        .ok()
-        .map(|bytes| crate::orchestration::profiles::storage::compute_hash(&bytes))
+    Ok(serde_json::to_value(&clone)?)
 }
 
 trait HasProfileMetadata {

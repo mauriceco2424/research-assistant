@@ -99,12 +99,12 @@
 
 ### Implementation
 
-- [ ] T027 [P] [US4] Add integration test for audit/export/delete/regenerate flows in `tests/integration/profile_governance.rs`.
-- [ ] T028 [US4] Implement `profile audit` chat flow showing chronological events and undo instructions in `src/chat/commands/profile.rs`.
-- [ ] T029 [US4] Implement export + delete handlers (ZIP creation, scope-aware deletes) in `src/orchestration/profiles/governance.rs`.
-- [ ] T029A [US4] Add filesystem lock/queue handling for exports and cover concurrent export/write scenarios in `tests/integration/profile_governance.rs`.
-- [ ] T030 [US4] Implement deterministic regeneration with hash verification + failure guidance in `src/orchestration/profiles/regenerate.rs`.
-- [ ] T031 [US4] Implement `profile scope` command (set/list) syncing with scope utilities in `src/chat/commands/profile.rs`.
+- [X] T027 [P] [US4] Add integration test for audit/export/delete/regenerate flows in `tests/integration/profile_governance.rs`.
+- [X] T028 [US4] Implement `profile audit` chat flow showing chronological events and undo instructions in `src/chat/commands/profile.rs`.
+- [X] T029 [US4] Implement export + delete handlers (ZIP creation, scope-aware deletes) in `src/orchestration/profiles/governance.rs`.
+- [X] T029A [US4] Add filesystem lock/queue handling for exports and cover concurrent export/write scenarios in `tests/integration/profile_governance.rs`.
+- [X] T030 [US4] Implement deterministic regeneration with hash verification + failure guidance in `src/orchestration/profiles/regenerate.rs`.
+- [X] T031 [US4] Implement `profile scope` command (set/list) syncing with scope utilities in `src/chat/commands/profile.rs`.
 
 **Checkpoint**: Users can audit, export, delete, and regenerate profiles confidently with documented undo steps.
 
@@ -114,10 +114,10 @@
 
 **Purpose**: Finalize docs, quickstart validation, and ensure orchestration transparency across the feature.
 
-- [ ] T032 [P] Update Quickstart walkthroughs + troubleshooting for interviews/governance in `specs/005-ai-profile-memory/quickstart.md`.
-- [ ] T033 Capture architecture + consent updates in `docs/CHANGELOG.md` or equivalent release notes (create file if missing).
-- [ ] T034 Run full `cargo test` + manual quickstart validation documenting results in `tests/README.md`.
-- [ ] T035 Benchmark `profile show` latency across sample Bases (5/50/500 entries) and record results vs. SC-001 in `docs/perf/profile_show.md`.
+- [X] T032 [P] Update Quickstart walkthroughs + troubleshooting for interviews/governance in `specs/005-ai-profile-memory/quickstart.md`.
+- [X] T033 Capture architecture + consent updates in `docs/CHANGELOG.md` or equivalent release notes (create file if missing).
+- [X] T034 Run full `cargo test` + manual quickstart validation documenting results in `tests/README.md`.
+- [X] T035 Benchmark `profile show` latency across sample Bases (5/50/500 entries) and record results vs. SC-001 in `docs/perf/profile_show.md`.
 
 ---
 

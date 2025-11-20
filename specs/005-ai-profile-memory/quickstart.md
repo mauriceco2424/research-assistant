@@ -39,11 +39,22 @@ researchbase chat "profile regenerate --from-history knowledge"
 - After delete, JSON/HTML removed but audit entry created.
 - Regeneration should replay events and report matching hash; if history missing, ensure graceful error.
 
-## 6. Integration Hooks
+### Concurrency Guard
+- If a teammate initiates another export, the chat response should surface `EXPORT_IN_PROGRESS`. Clear the `.profile_export.lock` file only after confirming no exports are active.
+
+## 6. Governance Scope Controls
+```bash
+researchbase chat "profile scope writing"
+researchbase chat "profile scope writing shared demo-base"
+```
+- First call lists the current scope & allowed bases; second call updates scope + logs a `ScopeChange` event.
+- Ensure disabled/shared scopes behave as expected in downstream APIs.
+
+## 7. Integration Hooks
 - Call `profile.get_work_context()` from planning workflows (tests under `tests/integration/profile_work_context.rs`).
 - Call `profile.get_knowledge_summary()` before entering Learning Mode to confirm summary formatting.
 
-## 7. Testing Strategy
+## 8. Testing Strategy
 - **Unit tests**: Validate schema serialization/deserialization, hash calculators, consent manifest parser.
 - **Integration tests**: End-to-end chat simulations writing to temp Base directories (use `tempfile` crate).
 - **Manual validation**: Inspect HTML summaries, confirm locks prevent concurrent export + update collisions.
