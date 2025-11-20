@@ -6,6 +6,8 @@
 
 pub mod api;
 pub mod defaults;
+pub mod knowledge;
+pub mod linking;
 pub mod model;
 pub mod storage;
 pub mod service;

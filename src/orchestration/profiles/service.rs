@@ -17,6 +17,9 @@ use crate::orchestration::{
             default_knowledge_profile, default_user_profile, default_work_profile,
             default_writing_profile,
         },
+        interview::InterviewFlow,
+        linking::refresh_evidence_links,
+        knowledge::apply_knowledge_mutations,
         model::{
             HistoryRef, KnowledgeProfile, ProfileChangeKind, ProfileMetadata, ProfileType,
             RemoteInferenceStatus, UserProfile, WorkProfile, WritingProfile,
@@ -226,8 +229,11 @@ impl<'a> ProfileService<'a> {
             }
             ProfileType::Knowledge => {
                 let mut profile = self.load_knowledge_profile()?;
-                let diff = apply_knowledge_changes(&mut profile, changes)?;
+                let diff = apply_knowledge_mutations(&mut profile, changes)?;
+                let mut evidence_updates = refresh_evidence_links(&self.base, &mut profile);
                 let hash_before = canonical_snapshot(&profile);
+                let mut diff = diff;
+                diff.append(&mut evidence_updates);
                 self.persist_update(
                     profile_type,
                     &mut profile,
@@ -246,10 +252,15 @@ impl<'a> ProfileService<'a> {
             bail!("profile interview requires confirm=true");
         }
         self.scopes.enforce_local_read(options.profile_type)?;
+        let mut flow = InterviewFlow::new(options.profile_type);
+        for answer in options.answers.iter().cloned() {
+            flow.record_response(answer);
+        }
+        let responses = flow.finalize();
         match options.profile_type {
             ProfileType::User => {
                 let mut profile = self.load_user_profile()?;
-                let mut diff = apply_user_changes(&mut profile, &options.answers)?;
+                let mut diff = apply_user_changes(&mut profile, &responses)?;
                 if diff.is_empty() {
                     diff.push("Recorded interview without field changes".into());
                 }
@@ -276,7 +287,7 @@ impl<'a> ProfileService<'a> {
             }
             ProfileType::Work => {
                 let mut profile = self.load_work_profile()?;
-                let mut diff = apply_work_changes(&mut profile, &options.answers)?;
+                let mut diff = apply_work_changes(&mut profile, &responses)?;
                 if diff.is_empty() {
                     diff.push("Recorded work interview without field changes".into());
                 }
@@ -301,13 +312,15 @@ impl<'a> ProfileService<'a> {
                     manifest_id: None,
                 })
             }
-            ProfileType::Writing => self.handle_writing_interview(options),
+            ProfileType::Writing => self.handle_writing_interview(options, &responses),
             ProfileType::Knowledge => {
                 let mut profile = self.load_knowledge_profile()?;
-                let mut diff = apply_knowledge_changes(&mut profile, &options.answers)?;
+                let mut diff = apply_knowledge_mutations(&mut profile, &responses)?;
                 if diff.is_empty() {
                     diff.push("Recorded knowledge interview without field changes".into());
                 }
+                let mut evidence_updates = refresh_evidence_links(&self.base, &mut profile);
+                diff.append(&mut evidence_updates);
                 let hash_before = canonical_snapshot(&profile);
                 let update = self.persist_update(
                     options.profile_type,
@@ -422,9 +435,10 @@ impl<'a> ProfileService<'a> {
     fn handle_writing_interview(
         &self,
         options: ProfileInterviewOptions,
+        responses: &[ProfileFieldChange],
     ) -> Result<ProfileInterviewOutcome> {
         let mut profile = self.load_writing_profile()?;
-        let mut diff = apply_writing_changes(&mut profile, &options.answers)?;
+        let mut diff = apply_writing_changes(&mut profile, responses)?;
         let mut manifest_id = None;
         let mut status = ProfileInterviewStatus::Completed;
         if options.requires_remote {
@@ -594,23 +608,6 @@ fn apply_writing_changes(
                 diff.push("Updated remote inference status".into());
             }
             other => bail!("Unsupported writing profile field '{other}'"),
-        }
-    }
-    Ok(diff)
-}
-
-fn apply_knowledge_changes(
-    profile: &mut KnowledgeProfile,
-    changes: &[ProfileFieldChange],
-) -> Result<Vec<String>> {
-    let mut diff = Vec::new();
-    for change in changes {
-        match change.field.to_ascii_lowercase().as_str() {
-            "summary" => {
-                profile.summary = split_list(&change.value);
-                diff.push("Updated summary".into());
-            }
-            other => bail!("Unsupported knowledge profile field '{other}'"),
         }
     }
     Ok(diff)

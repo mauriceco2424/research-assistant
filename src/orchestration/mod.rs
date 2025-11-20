@@ -1,5 +1,6 @@
 pub mod consent;
 pub mod events;
+pub mod learning;
 pub mod report_progress;
 pub mod profiles;
 
@@ -7,6 +8,7 @@ pub use consent::{
     require_remote_operation_consent, ConsentManifest, ConsentOperation, ConsentScope, ConsentStore,
 };
 pub use events::{log_profile_event, ProfileEventDetails};
+pub use learning::interface::LearningInterface;
 pub use report_progress::ReportProgressTracker;
 
 use crate::bases::{Base, BaseManager};

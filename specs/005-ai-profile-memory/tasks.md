@@ -81,11 +81,11 @@
 
 ### Implementation
 
-- [ ] T022 [P] [US3] Create integration test covering knowledge strengths/weakness toggles and summary API in `tests/integration/profile_knowledge_ready.rs`.
-- [ ] T023 [US3] Implement KnowledgeProfile entry mutations (strength, weakness, review time) in `src/orchestration/profiles/knowledge.rs`.
-- [ ] T024 [US3] Build evidence linking + stale detection against papers/notes in `src/orchestration/profiles/linking.rs`.
-- [ ] T025 [US3] Implement `profile.get_knowledge_summary()` response builder in `src/orchestration/profiles/api.rs`.
-- [ ] T026 [US3] Expose knowledge summary hook to Learning Mode orchestrations in `src/orchestration/learning/interface.rs`.
+- [X] T022 [P] [US3] Create integration test covering knowledge strengths/weakness toggles and summary API in `tests/integration/profile_knowledge_ready.rs`.
+- [X] T023 [US3] Implement KnowledgeProfile entry mutations (strength, weakness, review time) in `src/orchestration/profiles/knowledge.rs`.
+- [X] T024 [US3] Build evidence linking + stale detection against papers/notes in `src/orchestration/profiles/linking.rs`.
+- [X] T025 [US3] Implement `profile.get_knowledge_summary()` response builder in `src/orchestration/profiles/api.rs`.
+- [X] T026 [US3] Expose knowledge summary hook to Learning Mode orchestrations in `src/orchestration/learning/interface.rs`.
 
 **Checkpoint**: Knowledge readiness surfaces concept mastery data with evidence integrity for Learning Mode.
 

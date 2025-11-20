@@ -47,6 +47,7 @@ mod categories_narratives;
 mod reports_errors;
 mod reports_share;
 mod reports_configure;
+mod profile_knowledge_ready;
 mod profile_interview;
 mod profile_show_update;
 pub mod support;
