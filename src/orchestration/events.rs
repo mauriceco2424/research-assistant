@@ -1,4 +1,5 @@
 use crate::bases::{Base, BaseManager};
+use crate::orchestration::intent::payload::IntentPayload;
 use crate::orchestration::profiles::model::{ProfileChangeKind, ProfileType};
 use anyhow::Result;
 use chrono::Utc;
@@ -59,6 +60,88 @@ pub fn log_profile_event_with_id(
         event_id,
         base_id: base.id,
         event_type: EventType::ProfileChange,
+        timestamp: Utc::now(),
+        details: serde_json::to_value(details)?,
+    };
+    let log = OrchestrationLog::for_base(base);
+    log.append_event(&event)?;
+    Ok(event.event_id)
+}
+
+/// Structured payload logged for chat intent lifecycle events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntentEventDetails {
+    pub intent_id: Uuid,
+    pub action: String,
+    pub chat_turn_id: Uuid,
+    #[serde(default)]
+    pub payload: serde_json::Value,
+    #[serde(default)]
+    pub confirmation_ticket_id: Option<Uuid>,
+    #[serde(default)]
+    pub result_event_id: Option<Uuid>,
+    #[serde(default)]
+    pub failure_reason: Option<String>,
+}
+
+impl IntentEventDetails {
+    fn from_payload(payload: &IntentPayload) -> serde_json::Result<Self> {
+        Ok(Self {
+            intent_id: payload.intent_id,
+            action: payload.action.clone(),
+            chat_turn_id: payload.chat_turn_id,
+            payload: serde_json::to_value(payload)?,
+            confirmation_ticket_id: None,
+            result_event_id: None,
+            failure_reason: None,
+        })
+    }
+}
+
+pub fn log_intent_detected(base: &Base, payload: &IntentPayload) -> Result<Uuid> {
+    let details = IntentEventDetails::from_payload(payload)?;
+    log_intent_event(base, EventType::IntentDetected, details)
+}
+
+pub fn log_intent_confirmed(
+    base: &Base,
+    payload: &IntentPayload,
+    confirmation_ticket_id: Uuid,
+) -> Result<Uuid> {
+    let mut details = IntentEventDetails::from_payload(payload)?;
+    details.confirmation_ticket_id = Some(confirmation_ticket_id);
+    log_intent_event(base, EventType::IntentConfirmed, details)
+}
+
+pub fn log_intent_executed(
+    base: &Base,
+    payload: &IntentPayload,
+    result_event_id: Option<Uuid>,
+) -> Result<Uuid> {
+    let mut details = IntentEventDetails::from_payload(payload)?;
+    details.result_event_id = result_event_id;
+    log_intent_event(base, EventType::IntentExecuted, details)
+}
+
+pub fn log_intent_failed(
+    base: &Base,
+    payload: &IntentPayload,
+    reason: impl Into<String>,
+) -> Result<Uuid> {
+    let mut details = IntentEventDetails::from_payload(payload)?;
+    details.failure_reason = Some(reason.into());
+    log_intent_event(base, EventType::IntentFailed, details)
+}
+
+fn log_intent_event(
+    base: &Base,
+    event_type: EventType,
+    details: IntentEventDetails,
+) -> Result<Uuid> {
+    let event = OrchestrationEvent {
+        event_id: Uuid::new_v4(),
+        base_id: base.id,
+        event_type,
         timestamp: Utc::now(),
         details: serde_json::to_value(details)?,
     };

@@ -1,6 +1,11 @@
-# ResearchBase – AI Profiles & Long-Term Memory
+# ResearchBase - AI Profiles & Long-Term Memory
 
-## 2025-11-19 – Profile Governance & Polish
+## 2025-11-20 - Chat Intent Router Safeguards
+- Landed Phase 3–5 router work (multi-intent execution, confirmations, clarifications, contextual suggestions) plus fallback/manual hints when parsing fails.
+- Documented the developer flow in `docs/intent-router.md`, covering capability registration, evidence-backed suggestions, and troubleshooting.
+- Captured intent-router latency measurements in `docs/perf/intent_router.md` and logged the latest `cargo test` evidence for the new integration harness.
+
+## 2025-11-19 - Profile Governance & Polish
 - Added chat-first governance commands (`profile audit/export/delete/regenerate/scope`) with deterministic hashes, consent pointers, and scope enforcement per Spec 005.
 - Documented Quickstart guidance for exports, delete/regenerate recovery, and scope updates, emphasizing export locks to keep archives deterministic and local-first.
 - Captured integration coverage via `tests/integration/profile_governance.rs`, validating consent logging, orchestration replay, and scope changes before handing off to Phase 7 benchmarks.

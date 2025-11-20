@@ -18,8 +18,8 @@ use crate::orchestration::{
             default_writing_profile,
         },
         interview::InterviewFlow,
-        linking::refresh_evidence_links,
         knowledge::apply_knowledge_mutations,
+        linking::refresh_evidence_links,
         model::{
             HistoryRef, KnowledgeProfile, ProfileChangeKind, ProfileMetadata, ProfileType,
             RemoteInferenceStatus, UserProfile, WorkProfile, WritingProfile,
@@ -393,7 +393,8 @@ impl<'a> ProfileService<'a> {
             hash_after: hash_after.clone(),
         });
         write_profile(&json_path, profile)?;
-        let html_path = write_profile_html(self.layout.profile_html(profile_type.slug()), &html_output)?;
+        let html_path =
+            write_profile_html(self.layout.profile_html(profile_type.slug()), &html_output)?;
         Ok(ProfileUpdateOutput {
             profile_type,
             event_id,
@@ -538,7 +539,10 @@ struct InterviewMetricRecord {
     event_id: Option<Uuid>,
 }
 
-fn apply_user_changes(profile: &mut UserProfile, changes: &[ProfileFieldChange]) -> Result<Vec<String>> {
+fn apply_user_changes(
+    profile: &mut UserProfile,
+    changes: &[ProfileFieldChange],
+) -> Result<Vec<String>> {
     let mut diff = Vec::new();
     for change in changes {
         match change.field.to_ascii_lowercase().as_str() {
@@ -564,7 +568,10 @@ fn apply_user_changes(profile: &mut UserProfile, changes: &[ProfileFieldChange])
     Ok(diff)
 }
 
-fn apply_work_changes(profile: &mut WorkProfile, changes: &[ProfileFieldChange]) -> Result<Vec<String>> {
+fn apply_work_changes(
+    profile: &mut WorkProfile,
+    changes: &[ProfileFieldChange],
+) -> Result<Vec<String>> {
     let mut diff = Vec::new();
     for change in changes {
         match change.field.to_ascii_lowercase().as_str() {

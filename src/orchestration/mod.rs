@@ -1,8 +1,9 @@
 pub mod consent;
 pub mod events;
+pub mod intent;
 pub mod learning;
-pub mod report_progress;
 pub mod profiles;
+pub mod report_progress;
 
 pub use consent::{
     require_remote_operation_consent, ConsentManifest, ConsentOperation, ConsentScope, ConsentStore,
@@ -51,6 +52,10 @@ pub enum EventType {
     CategoryProposalsApplied,
     CategoryEdit,
     ProfileChange,
+    IntentDetected,
+    IntentConfirmed,
+    IntentExecuted,
+    IntentFailed,
 }
 
 /// General-purpose orchestration event stored as JSONL.

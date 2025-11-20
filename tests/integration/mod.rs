@@ -51,6 +51,10 @@ mod profile_knowledge_ready;
 mod profile_interview;
 mod profile_show_update;
 mod profile_governance;
+mod intent_router_execute;
+mod intent_router_failure;
+mod intent_router_confirmation;
+mod intent_router_suggestions;
 pub mod support;
 
 #[test]

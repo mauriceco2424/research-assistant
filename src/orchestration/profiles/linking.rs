@@ -32,10 +32,7 @@ pub fn refresh_evidence_links(base: &Base, profile: &mut KnowledgeProfile) -> Ve
 }
 
 /// Collects missing references for summary APIs.
-pub fn detect_missing_references(
-    base: &Base,
-    profile: &KnowledgeProfile,
-) -> Vec<StaleEvidenceRef> {
+pub fn detect_missing_references(base: &Base, profile: &KnowledgeProfile) -> Vec<StaleEvidenceRef> {
     let mut notices = Vec::new();
     for entry in &profile.entries {
         for missing in missing_references(base, entry) {

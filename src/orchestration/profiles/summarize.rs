@@ -1,6 +1,4 @@
-use super::model::{
-    KnowledgeProfile, UserProfile, WorkProfile, WritingProfile,
-};
+use super::model::{KnowledgeProfile, UserProfile, WorkProfile, WritingProfile};
 
 #[derive(Debug, Clone)]
 pub struct ProfileSummary {
@@ -34,10 +32,9 @@ pub fn summarize_user(profile: &UserProfile) -> ProfileSummary {
     } else {
         summary.highlights.extend(profile.summary.clone());
     }
-    summary.fields.push((
-        "Name".into(),
-        null_safe(&profile.fields.name),
-    ));
+    summary
+        .fields
+        .push(("Name".into(), null_safe(&profile.fields.name)));
     summary.fields.push((
         "Affiliations".into(),
         join_list(&profile.fields.affiliations),
@@ -48,7 +45,11 @@ pub fn summarize_user(profile: &UserProfile) -> ProfileSummary {
     ));
     summary.fields.push((
         "Availability".into(),
-        profile.fields.availability.clone().unwrap_or_else(|| "Unset".into()),
+        profile
+            .fields
+            .availability
+            .clone()
+            .unwrap_or_else(|| "Unset".into()),
     ));
     summary
 }
@@ -56,9 +57,7 @@ pub fn summarize_user(profile: &UserProfile) -> ProfileSummary {
 pub fn summarize_work(profile: &WorkProfile) -> ProfileSummary {
     let mut summary = ProfileSummary::new();
     if let Some(focus) = &profile.fields.focus_statement {
-        summary
-            .highlights
-            .push(format!("Primary focus: {}", focus));
+        summary.highlights.push(format!("Primary focus: {}", focus));
     } else {
         summary
             .highlights
@@ -101,7 +100,9 @@ pub fn summarize_work(profile: &WorkProfile) -> ProfileSummary {
         "Preferred Tools".into(),
         join_list(&profile.fields.preferred_tools),
     ));
-    summary.fields.push(("Risks".into(), join_list(&profile.fields.risks)));
+    summary
+        .fields
+        .push(("Risks".into(), join_list(&profile.fields.risks)));
     summary
 }
 
@@ -137,7 +138,13 @@ pub fn summarize_writing(profile: &WritingProfile) -> ProfileSummary {
             .fields
             .style_examples
             .iter()
-            .map(|example| format!("{} ({})", example.source, example.citation.clone().unwrap_or_else(|| "n/a".into())))
+            .map(|example| {
+                format!(
+                    "{} ({})",
+                    example.source,
+                    example.citation.clone().unwrap_or_else(|| "n/a".into())
+                )
+            })
             .collect::<Vec<String>>()
             .join("; "),
     ));
@@ -164,16 +171,17 @@ pub fn summarize_knowledge(profile: &KnowledgeProfile) -> ProfileSummary {
     } else {
         summary.highlights.extend(profile.summary.clone());
     }
-    summary.fields.push((
-        "Entries".into(),
-        profile.entries.len().to_string(),
-    ));
+    summary
+        .fields
+        .push(("Entries".into(), profile.entries.len().to_string()));
     let stale = profile
         .entries
         .iter()
         .filter(|entry| entry.verification_status != super::model::VerificationStatus::Verified)
         .count();
-    summary.fields.push(("Unverified/STALE".into(), stale.to_string()));
+    summary
+        .fields
+        .push(("Unverified/STALE".into(), stale.to_string()));
     summary
 }
 

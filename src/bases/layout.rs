@@ -4,6 +4,8 @@
 //! directories. Centralizing the sub-directory logic here avoids duplicating
 //! string constants across orchestration modules.
 
+use anyhow::Result;
+use std::fs;
 use std::path::PathBuf;
 
 use super::Base;
@@ -16,6 +18,8 @@ pub const USER_PROFILES_SUBDIR: &str = "profiles";
 pub const PROFILE_EXPORTS_SUBDIR: &str = "exports";
 /// Relative path for consent manifest storage inside the AI layer.
 pub const CONSENT_MANIFESTS_SUBDIR: &str = "consent/manifests";
+/// Relative path storing AI-layer intent payloads and logs.
+pub const INTENTS_SUBDIR: &str = "intents";
 
 /// Convenience wrapper for locating all profile-related paths for a Base.
 #[derive(Debug, Clone)]
@@ -43,14 +47,12 @@ impl ProfileLayout {
 
     /// Path to the JSON artifact for the requested profile type.
     pub fn profile_json(&self, profile_type: &str) -> PathBuf {
-        self.ai_profiles_dir
-            .join(format!("{profile_type}.json"))
+        self.ai_profiles_dir.join(format!("{profile_type}.json"))
     }
 
     /// Path to the HTML summary for the requested profile type.
     pub fn profile_html(&self, profile_type: &str) -> PathBuf {
-        self.user_profiles_dir
-            .join(format!("{profile_type}.html"))
+        self.user_profiles_dir.join(format!("{profile_type}.html"))
     }
 }
 
@@ -67,4 +69,11 @@ pub fn user_profiles_dir(base: &Base) -> PathBuf {
 /// Returns the directory storing JSON profile artifacts.
 pub fn ai_profiles_dir(base: &Base) -> PathBuf {
     ProfileLayout::new(base).ai_profiles_dir
+}
+
+/// Ensures the AI-layer `intents` directory exists and returns the path.
+pub fn ensure_intents_dir(base: &Base) -> Result<PathBuf> {
+    let dir = base.ai_layer_path.join(INTENTS_SUBDIR);
+    fs::create_dir_all(&dir)?;
+    Ok(dir)
 }

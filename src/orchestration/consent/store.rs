@@ -125,8 +125,8 @@ impl ConsentStore {
 }
 
 fn read_manifest(path: PathBuf) -> Result<ConsentManifest> {
-    let data = fs::read(&path)
-        .with_context(|| format!("Failed reading consent manifest {:?}", path))?;
+    let data =
+        fs::read(&path).with_context(|| format!("Failed reading consent manifest {:?}", path))?;
     let manifest = serde_json::from_slice(&data)
         .with_context(|| format!("Failed parsing consent manifest {:?}", path))?;
     Ok(manifest)

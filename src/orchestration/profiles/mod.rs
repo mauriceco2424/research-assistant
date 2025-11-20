@@ -6,14 +6,14 @@
 
 pub mod api;
 pub mod defaults;
+pub mod governance;
+pub mod interview;
 pub mod knowledge;
 pub mod linking;
 pub mod model;
-pub mod storage;
-pub mod service;
-pub mod summarize;
-pub mod scope;
-pub mod interview;
-pub mod render;
-pub mod governance;
 pub mod regenerate;
+pub mod render;
+pub mod scope;
+pub mod service;
+pub mod storage;
+pub mod summarize;

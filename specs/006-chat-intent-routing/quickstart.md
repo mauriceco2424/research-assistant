@@ -22,8 +22,8 @@
 
 ## 4. Exercise Clarification & Fallback
 1. Issue ambiguous request: `Please handle that task`.
-2. Assistant should respond with clarifying options or fallback instructions to run manual commands.
-3. Ensure `intent_failed` events capture low-confidence cases.
+2. Assistant should respond with clarifying options or fallback instructions to run manual commands, including the `help commands` hint.
+3. Ensure `intent_failed` events capture low-confidence cases plus the cancellation notice for queued intents.
 
 ## 5. Remote Consent Flow
 1. Disable remote inference; attempt: `Use AI to infer my writing tone`.
@@ -33,7 +33,7 @@
 ## 6. Contextual Suggestions
 1. Seed pending consent manifests or mark KnowledgeProfile entries as STALE.
 2. Ask `What should I do next?`
-3. Assistant should cite the pending evidence (e.g., consent ids, stale concepts) when suggesting next actions.
+3. Assistant should cite the pending evidence (e.g., consent ids, stale concepts) when suggesting next actions and emit a `suggestion.snapshot` event id for audit.
 
 ## 7. Troubleshooting
 - **Router unresponsive**: Check intent log under `/AI/<Base>/intents/log.jsonl` for parsing errors.

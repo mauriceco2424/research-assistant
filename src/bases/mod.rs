@@ -26,8 +26,9 @@ pub use config::{
 };
 pub use fs_paths::{ensure_category_dirs, CategoryPaths};
 pub use layout::{
-    ai_profiles_dir, profile_json_path, user_profiles_dir, ProfileLayout,
-    AI_PROFILES_SUBDIR, CONSENT_MANIFESTS_SUBDIR, PROFILE_EXPORTS_SUBDIR, USER_PROFILES_SUBDIR,
+    ai_profiles_dir, ensure_intents_dir, profile_json_path, user_profiles_dir, ProfileLayout,
+    AI_PROFILES_SUBDIR, CONSENT_MANIFESTS_SUBDIR, INTENTS_SUBDIR, PROFILE_EXPORTS_SUBDIR,
+    USER_PROFILES_SUBDIR,
 };
 
 use crate::orchestration::{log_event, EventType, OrchestrationEvent};
@@ -149,6 +150,7 @@ impl BaseManager {
         };
         fs_paths::ensure_category_dirs(&base)?;
         migrations::profile_shells::ensure_profile_shells(&base)?;
+        ensure_intents_dir(&base)?;
         self.persist_base(&base)?;
         log_event(
             self,

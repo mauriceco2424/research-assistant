@@ -11,9 +11,9 @@
 
 **Purpose**: Prepare workspace folders and scaffolding needed by all phases.
 
-- [ ] T001 Create intent module scaffolding under `src/orchestration/intent/` (payload.rs, confirmation.rs, registry.rs, log.rs)
-- [ ] T002 Add new `intents` directory initialization to `src/bases/layout.rs` so each Base gets `/AI/<Base>/intents`
-- [ ] T003 [P] Update integration harness registry in `tests/integration/mod.rs` to include forthcoming intent router tests
+- [X] T001 Create intent module scaffolding under `src/orchestration/intent/` (payload.rs, confirmation.rs, registry.rs, log.rs)
+- [X] T002 Add new `intents` directory initialization to `src/bases/layout.rs` so each Base gets `/AI/<Base>/intents`
+- [X] T003 [P] Update integration harness registry in `tests/integration/mod.rs` to include forthcoming intent router tests
 
 ---
 
@@ -21,12 +21,12 @@
 
 **Purpose**: Core infrastructure required before any user story work.
 
-- [ ] T004 Define `IntentPayload` structure plus serde helpers in `src/orchestration/intent/payload.rs`
-- [ ] T005 Implement `ConfirmationTicket` model + file persistence in `src/orchestration/intent/confirmation.rs`
-- [ ] T006 Extend orchestration logging with `intent_detected/confirmed/executed/failed` enums in `src/orchestration/events.rs`
-- [ ] T007 [P] Create AI-layer JSONL writer/reader for intents in `src/orchestration/intent/log.rs`
-- [ ] T008 Add capability registry skeleton (`CapabilityDescriptor`, registration API) in `src/orchestration/intent/registry.rs`
-- [ ] T009 Implement global remote-disable guard in `src/chat/intent_router/dispatcher.rs` (block `safety_class = remote` when toggle is off)
+- [X] T004 Define `IntentPayload` structure plus serde helpers in `src/orchestration/intent/payload.rs`
+- [X] T005 Implement `ConfirmationTicket` model + file persistence in `src/orchestration/intent/confirmation.rs`
+- [X] T006 Extend orchestration logging with `intent_detected/confirmed/executed/failed` enums in `src/orchestration/events.rs`
+- [X] T007 [P] Create AI-layer JSONL writer/reader for intents in `src/orchestration/intent/log.rs`
+- [X] T008 Add capability registry skeleton (`CapabilityDescriptor`, registration API) in `src/orchestration/intent/registry.rs`
+- [X] T009 Implement global remote-disable guard in `src/chat/intent_router/dispatcher.rs` (block `safety_class = remote` when toggle is off)
 
 **Checkpoint**: Intent schema, confirmation persistence, remote toggles, and logging primitives ready.
 
@@ -40,13 +40,13 @@
 
 ### Implementation
 
-- [ ] T010 [P] [US1] Implement NLP parsing + segmentation logic in `src/chat/intent_router/parser.rs`
-- [ ] T011 [P] [US1] Build intent queue + dispatcher sequencing in `src/chat/intent_router/dispatcher.rs`
-- [ ] T012 [US1] Add failure short-circuit/cancellation handling to dispatcher in `src/chat/intent_router/dispatcher.rs`
-- [ ] T013 [US1] Wire router into chat session entrypoint (`src/chat/mod.rs`) to intercept messages before existing command handlers
-- [ ] T014 [US1] Add execution feedback + orchestration status responses to `src/chat/commands/mod.rs`
-- [ ] T015 [P] [US1] Extend chat-session integration harness with `tests/integration/intent_router_execute.rs` covering multi-intent success flow
-- [ ] T016 [P] [US1] Add failure/cancellation integration test in `tests/integration/intent_router_failure.rs`
+- [X] T010 [P] [US1] Implement NLP parsing + segmentation logic in `src/chat/intent_router/parser.rs`
+- [X] T011 [P] [US1] Build intent queue + dispatcher sequencing in `src/chat/intent_router/dispatcher.rs`
+- [X] T012 [US1] Add failure short-circuit/cancellation handling to dispatcher in `src/chat/intent_router/dispatcher.rs`
+- [X] T013 [US1] Wire router into chat session entrypoint (`src/chat/mod.rs`) to intercept messages before existing command handlers
+- [X] T014 [US1] Add execution feedback + orchestration status responses to `src/chat/commands/mod.rs`
+- [X] T015 [P] [US1] Extend chat-session integration harness with `tests/integration/intent_router_execute.rs` covering multi-intent success flow
+- [X] T016 [P] [US1] Add failure/cancellation integration test in `tests/integration/intent_router_failure.rs`
 
 **Checkpoint**: User can issue multi-intent instructions; assistant executes sequentially with logs and cancels downstream intents when needed.
 
@@ -60,12 +60,12 @@
 
 ### Implementation
 
-- [ ] T017 [P] [US2] Implement safety classifier + confidence threshold checks in `src/chat/intent_router/safety.rs`
-- [ ] T018 [US2] Surface clarification prompts + option lists in chat reply builder (`src/chat/intent_router/ui.rs`)
-- [ ] T019 [US2] Connect confirmation ticket workflow to actual command execution (write/read tickets) in `src/chat/intent_router/confirmation_flow.rs`
-- [ ] T020 [US2] Ensure remote inference prompts display manifest summaries and consent reminders in `src/chat/commands/mod.rs`
-- [ ] T021 [US2] Add Base/offline guard before routing in `src/chat/intent_router/dispatcher.rs` (notify user to select a Base)
-- [ ] T022 [P] [US2] Add destructive-action + missing-Base integration tests in `tests/integration/intent_router_confirmation.rs`
+- [X] T017 [P] [US2] Implement safety classifier + confidence threshold checks in `src/chat/intent_router/safety.rs`
+- [X] T018 [US2] Surface clarification prompts + option lists in chat reply builder (`src/chat/intent_router/ui.rs`)
+- [X] T019 [US2] Connect confirmation ticket workflow to actual command execution (write/read tickets) in `src/chat/intent_router/confirmation_flow.rs`
+- [X] T020 [US2] Ensure remote inference prompts display manifest summaries and consent reminders in `src/chat/commands/mod.rs`
+- [X] T021 [US2] Add Base/offline guard before routing in `src/chat/intent_router/dispatcher.rs` (notify user to select a Base)
+- [X] T022 [P] [US2] Add destructive-action + missing-Base integration tests in `tests/integration/intent_router_confirmation.rs`
 
 **Checkpoint**: Destructive/remote commands always confirm; low-confidence or context-missing intents ask clarifying questions instead of guessing.
 
@@ -79,10 +79,10 @@
 
 ### Implementation
 
-- [ ] T023 [P] [US3] Implement `SuggestionContext` snapshot builder in `src/orchestration/intent/suggestions.rs`
-- [ ] T024 [US3] Hook suggestion engine into chat loop (`src/chat/intent_router/suggestions.rs`) with evidence citations
-- [ ] T025 [US3] Implement fallback guidance + manual-command hints for failed intents in `src/chat/intent_router/fallback.rs`
-- [ ] T026 [P] [US3] Integration test for contextual suggestion + fallback flows in `tests/integration/intent_router_suggestions.rs`
+- [X] T023 [P] [US3] Implement `SuggestionContext` snapshot builder in `src/orchestration/intent/suggestions.rs`
+- [X] T024 [US3] Hook suggestion engine into chat loop (`src/chat/intent_router/suggestions.rs`) with evidence citations
+- [X] T025 [US3] Implement fallback guidance + manual-command hints for failed intents in `src/chat/intent_router/fallback.rs`
+- [X] T026 [P] [US3] Integration test for contextual suggestion + fallback flows in `tests/integration/intent_router_suggestions.rs`
 
 **Checkpoint**: Assistant remains helpful even when unsure, citing evidence for suggestions.
 
@@ -92,12 +92,12 @@
 
 **Purpose**: Final documentation, benchmarks, and validation.
 
-- [ ] T027 Update quickstart walkthrough with final screenshots/CLI snippets in `specs/006-chat-intent-routing/quickstart.md`
-- [ ] T028 Add developer docs for capability registration and router troubleshooting in `docs/intent-router.md` and reference in `docs/CHANGELOG.md`
-- [ ] T029 Benchmark intent routing latency on Bases with 5/50/500 events; document results in `docs/perf/intent_router.md`
-- [ ] T030 [P] Run full `cargo test` + manual chat validation, document results in `tests/README.md`
-- [ ] T031 Review intent logs for P1/P2 compliance, add troubleshooting tips to `docs/intent-router.md`
-- [ ] T032 [P] Final lint/format pass across new Rust modules (`cargo fmt`, `cargo clippy`)
+- [X] T027 Update quickstart walkthrough with final screenshots/CLI snippets in `specs/006-chat-intent-routing/quickstart.md`
+- [X] T028 Add developer docs for capability registration and router troubleshooting in `docs/intent-router.md` and reference in `docs/CHANGELOG.md`
+- [X] T029 Benchmark intent routing latency on Bases with 5/50/500 events; document results in `docs/perf/intent_router.md`
+- [X] T030 [P] Run full `cargo test` + manual chat validation, document results in `tests/README.md`
+- [X] T031 Review intent logs for P1/P2 compliance, add troubleshooting tips to `docs/intent-router.md`
+- [X] T032 [P] Final lint/format pass across new Rust modules (`cargo fmt`, `cargo clippy`)
 
 ---
 

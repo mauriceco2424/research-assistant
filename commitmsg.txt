@@ -1,0 +1,27 @@
+Implement: Chat intent planning artifacts (Spec 006)
+
+**Specification & Plan**
+- Documented failure short-circuit, remote-disable enforcement, and clarified acceptance criteria within spec and plan.
+- Captured architectural context (Rust + Tauri, developer docs) and corrected performance targets in the implementation plan.
+
+**Research & Design Docs**
+- Added Phase 0 research decisions, entity data model, API contracts, and quickstart validation steps tailored to the assistant router.
+- Recorded checklist compliance to ensure spec quality before planning.
+
+**Execution Plan (tasks.md)**
+- Structured tasks by phases/user stories, including remote-toggle guard, failure cancellation tests, base-guarding, suggestion engine, and polish benchmarks/docs.
+- Aligned tasks with constitutional requirements and clarified independent tests per story.
+
+Files Modified:
+- specs/006-chat-intent-routing/spec.md: Added failure cancellation acceptance scenario and remote toggle enforcement requirement.
+- specs/006-chat-intent-routing/plan.md: Updated summary, tech context, dependencies, and performance metrics with new scope.
+- specs/006-chat-intent-routing/research.md: Captured Phase 0 decisions (payload schema, confirmations, registry, suggestions, logging).
+- specs/006-chat-intent-routing/data-model.md: Defined IntentPayload, ConfirmationTicket, CapabilityDescriptor, etc.
+- specs/006-chat-intent-routing/contracts/intent-routing.md: Documented router pipelines, confirmations, registry API, intent events.
+- specs/006-chat-intent-routing/quickstart.md: Outlined validation steps for routing, confirmations, suggestions, troubleshooting.
+- specs/006-chat-intent-routing/checklists/requirements.md: Added spec quality checklist.
+- specs/006-chat-intent-routing/tasks.md: Generated detailed task list covering setup, stories, polish.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>

@@ -82,12 +82,14 @@ impl<'a> ProfileScopeStore<'a> {
         Ok(())
     }
 
-    pub fn enforce_share_target(&self, profile_type: ProfileType, target_base_slug: &str) -> Result<()> {
+    pub fn enforce_share_target(
+        &self,
+        profile_type: ProfileType,
+        target_base_slug: &str,
+    ) -> Result<()> {
         let setting = self.get(profile_type)?;
         if !scope_allows_target(&setting, &self.base.slug, target_base_slug) {
-            anyhow::bail!(
-                "profile {profile_type:?} is not shared with Base '{target_base_slug}'."
-            );
+            anyhow::bail!("profile {profile_type:?} is not shared with Base '{target_base_slug}'.");
         }
         Ok(())
     }

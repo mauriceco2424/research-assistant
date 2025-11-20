@@ -167,7 +167,11 @@ impl<'a> ProfileGovernance<'a> {
         })
     }
 
-    pub fn delete(&self, profile_type: ProfileType, confirm_phrase: &str) -> Result<ProfileDeleteResult> {
+    pub fn delete(
+        &self,
+        profile_type: ProfileType,
+        confirm_phrase: &str,
+    ) -> Result<ProfileDeleteResult> {
         let expected = format!("DELETE {}", profile_type.slug());
         if !confirm_phrase.eq_ignore_ascii_case(&expected) {
             bail!("profile delete requires confirm phrase '{expected}'.");
@@ -284,11 +288,12 @@ impl<'a> ProfileGovernance<'a> {
     fn resolve_archive_path(&self, destination: Option<PathBuf>, slug: &str) -> Result<PathBuf> {
         let default_name = format!("{slug}-{}.zip", Utc::now().format("%Y%m%dT%H%M%SZ"));
         match destination {
-            Some(path) if path
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .map(|ext| ext.eq_ignore_ascii_case("zip"))
-                .unwrap_or(false) =>
+            Some(path)
+                if path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .map(|ext| ext.eq_ignore_ascii_case("zip"))
+                    .unwrap_or(false) =>
             {
                 if let Some(parent) = path.parent() {
                     fs::create_dir_all(parent)?;

@@ -94,8 +94,9 @@ impl<'a> ProfileRegenerator<'a> {
             .with_context(|| format!("Failed to open {}", archive_path.display()))?;
         let mut archive = ZipArchive::new(file)?;
         let json_name = format!("{}.json", profile_type.slug());
-        let mut json_entry =
-            archive.by_name(&json_name).with_context(|| format!("Archive missing {json_name}"))?;
+        let mut json_entry = archive
+            .by_name(&json_name)
+            .with_context(|| format!("Archive missing {json_name}"))?;
         let mut contents = String::new();
         json_entry.read_to_string(&mut contents)?;
         match profile_type {
@@ -109,11 +110,21 @@ impl<'a> ProfileRegenerator<'a> {
             }
             ProfileType::Writing => {
                 let mut profile: WritingProfile = serde_json::from_str(&contents)?;
-                self.persist_from_archive(profile_type, &mut profile, summarize_writing, archive_path)
+                self.persist_from_archive(
+                    profile_type,
+                    &mut profile,
+                    summarize_writing,
+                    archive_path,
+                )
             }
             ProfileType::Knowledge => {
                 let mut profile: KnowledgeProfile = serde_json::from_str(&contents)?;
-                self.persist_from_archive(profile_type, &mut profile, summarize_knowledge, archive_path)
+                self.persist_from_archive(
+                    profile_type,
+                    &mut profile,
+                    summarize_knowledge,
+                    archive_path,
+                )
             }
         }
     }

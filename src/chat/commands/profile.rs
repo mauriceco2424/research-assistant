@@ -9,7 +9,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use crate::{
     bases::{Base, BaseManager},
     orchestration::profiles::{
-        governance::{ProfileAuditLog, ProfileDeleteResult, ProfileExportResult, ProfileGovernance},
+        governance::{
+            ProfileAuditLog, ProfileDeleteResult, ProfileExportResult, ProfileGovernance,
+        },
         model::{ProfileScopeMode, ProfileScopeSetting},
         regenerate::{ProfileRegenerateOutcome, ProfileRegenerator},
         service::{
@@ -64,7 +66,10 @@ impl<'a> ProfileCommandBridge<'a> {
 
     pub fn run(&self, base: &Base, request: ProfileRunRequest) -> Result<String> {
         if !request.run_kind.eq_ignore_ascii_case("writing-style") {
-            bail!("Unsupported profile run '{}'. Only 'writing-style' is available.", request.run_kind);
+            bail!(
+                "Unsupported profile run '{}'. Only 'writing-style' is available.",
+                request.run_kind
+            );
         }
         let mut interview_request = ProfileInterviewRequest::default();
         interview_request.profile_type = if request.profile_type.is_empty() {
@@ -85,7 +90,10 @@ impl<'a> ProfileCommandBridge<'a> {
         let profile_type = service.parse_type(&request.profile_type)?;
         let governance = ProfileGovernance::new(self.manager, base);
         let log = governance.audit(profile_type)?;
-        Ok(format_audit_response(&log, request.include_undo_instructions))
+        Ok(format_audit_response(
+            &log,
+            request.include_undo_instructions,
+        ))
     }
 
     pub fn export(&self, base: &Base, request: ProfileExportRequest) -> Result<String> {
@@ -296,8 +304,7 @@ fn format_export_response(result: &ProfileExportResult, include_history: bool) -
     let _ = writeln!(
         &mut response,
         "Archive hash: {}\nEvent ID: {}",
-        result.hash,
-        result.event_id
+        result.hash, result.event_id
     );
     if include_history {
         response.push_str("Included audit log in archive.");
@@ -343,9 +350,7 @@ fn format_regenerate_response(
     let _ = writeln!(
         &mut response,
         "Replayed events: {}\nFinal hash: {}\nEvent ID: {}",
-        outcome.replayed_events,
-        outcome.hash_after,
-        outcome.event_id
+        outcome.replayed_events, outcome.hash_after, outcome.event_id
     );
     response.trim().to_string()
 }

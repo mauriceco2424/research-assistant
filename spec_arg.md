@@ -1,29 +1,30 @@
-# Spec Argument – AI Profiles & Long-Term Memory (Spec 05)
+# Spec Argument – Chat Assistant & Intent Routing (Spec 06)
 
-Design the **AI Profiles** capability described in master_spec.md §7 and roadmap item Spec 05. Produce a spec that defines how the system captures, stores, surfaces, and updates the four long-term profiles (UserProfile, WorkProfile, WritingProfile, KnowledgeProfile) entirely within the AI layer, aligning with constitutional principles (P1–P10) and building on the completed Specs 01–04.
+Design the **Chat Assistant + Intent Routing** capability described in `master_spec.md` §3 (Chat Panel) and §14 (Intent Routing & Orchestration), aligned with roadmap item **Spec 06**. Produce a spec that formalizes how natural-language inputs are parsed, confirmed, and dispatched to the existing command surfaces (profiles, reports, ingestion, learning prep, etc.) while preserving constitutional guarantees (P1–P10) and the dual-layer logging requirements established in prior specs.
 
 ## User Intent & Scenarios
-- **Profile Interview & Review**: After onboarding, the researcher can run chat flows such as profile show user or profile update writing to inspect/edit structured JSON describing their background, tone, and goals without digging into files.
-- **Context-Aware Assistance**: When asking for writing or planning help, the user expects the AI to reuse stored preferences (tone, project TODOs, concept mastery) rather than re-asking. They also need profile scope <Base> and profile export/delete to control where the AI may apply the data.
-- **Knowledge Tracking**: Before entering Learning Mode, the user wants to view the KnowledgeProfile (concept → mastery → evidence), mark strengths/weaknesses, and link entries to papers/notes, all from chat.
-- **Audit & Undo**: Commands like profile audit work should list when/why entries changed, referencing orchestration event IDs and offering undo guidance so users trust the long-term memory.
+- **Natural Conversation to Commands**: A researcher types “Summarize the last 3 papers I imported and then show my writing profile.” The assistant must detect multiple intents, confirm if the workflow is destructive or long-running, and queue/execute the corresponding orchestration calls (report generation, `profile show writing`) without the user memorizing CLI syntax.
+- **Clarification & Disambiguation**: When a user says “delete the profile,” the assistant should clarify which profile/base, highlight the confirm phrase, and surface constitutional constraints (P6 transparency, P1 local-first) before calling `profile delete`.
+- **Mixed Context Awareness**: Before suggesting actions such as new paper discovery or learning mode, the assistant inspects AI-layer signals (profile scopes, last ingestion timestamp, pending consent items) and offers options (“I can fetch papers, refresh categories, or prep a learning session”) with explicit confirmations.
+- **Orchestration Feedback Loop**: After routing a command, the assistant reports progress updates, surface orchestration event IDs, and instructions for undo/redo so the chat log becomes the authoritative audit trail.
 
 ## Constraints & Constitutional Alignment
-- **P1 Local-First**: Profiles live in /AI/<Base>/profiles/*.json with optional HTML summaries in /User/<Base>/profiles/; no silent network sync.
-- **P2 Consent**: Any remote summarization (e.g., extracting writing tone from PDFs) must emit a prompt manifest, request consent, and log approvals before touching external endpoints.
-- **P3/P4 Dual-Layer**: Profiles are deterministic artifacts (JSON/Markdown) regenerated from chat inputs + orchestration logs via profile regenerate --from-history.
-- **P5 Chat-First**: All interactions (interviews, edits, exports) happen through chat commands or generated HTML summaries; no new UI panes.
-- **P6 Transparency**: Every profile mutation logs an orchestration event (who/what/when) and exposes undo instructions.
-- **P7 Integrity / P8 Learning**: KnowledgeProfile entries must cite evidence (paper IDs, notes) and clearly label uncertainties so future learning sessions stay academically honest.
+- **P1 Local-First / P2 Consent**: The router must never trigger remote inference or acquisition without summarizing the prompt manifest and capturing explicit approval. Cached intents must live locally (no cloud queues).
+- **P3/P4 Dual-Layer**: Every routed action logs an orchestration event (intent id, parsed command, confirmation tokens) so regenerations can recreate the chat decision tree. Chat transcripts remain the user-layer artifact; intent manifests live in AI-layer JSON.
+- **P5 Chat-First**: No new GUI; all routing, confirmations, and progress updates appear inline in chat. Buttons/links are limited to simple quick-reply affordances, not new panels.
+- **P6 Transparency / Undoability**: Non-trivial operations require explicit confirmation (especially destructive tasks). The assistant must surface event IDs + undo instructions in its replies, and bulk actions need “Are you sure?” loops.
+- **P7 Integrity / P8 Learning**: When routing to knowledge or learning flows, the assistant cites the evidence it will use (e.g., KnowledgeProfile entries marked STALE) and labels speculative suggestions as such.
+- **P9/P10 Versioning & Extensibility**: Intent schemas must be versioned and easily extensible so future specs (Writing Assistant, Learning Mode) can register new intents without breaking existing ones.
 
 ## Success Criteria
-1. Chat commands profile show <user|work|writing|knowledge> render structured summaries with timestamps, evidence references, and edit history pointers.
-2. Guided interviews (profile run writing-style, profile interview knowledge) collect data, confirm before overwriting, and store results locally with consent manifests when remote inference is needed.
-3. KnowledgeProfile maintains concept mastery records (concept, mastery level, evidence, weaknesses) and exposes APIs/events that Learning Mode can consume later.
-4. Running profile export/profile delete obeys privacy expectations (local ZIP export, per-profile wipe), and profile regenerate --from-history rebuilds identical JSON from orchestration logs, proving regenerability.
+1. **Intent Schema & Router**: Define a deterministic JSON schema for parsed intents (action, target, parameters, safety classification) and the routing engine that maps chat utterances to concrete command handlers or follow-up questions.
+2. **Confirmation & Safety Flow**: Specify how the assistant confirms high-impact actions (delete, export, remote inference) including default prompts, timeout behavior, and how confirmations are persisted/logged.
+3. **Ambiguity & Error Recovery**: Describe fallback interactions when the assistant cannot confidently map an intent (e.g., ask clarifying questions, offer suggestions, defer to manual command syntax).
+4. **Orchestration Logging**: Enumerate the orchestration events emitted by the router (intent_detected, intent_confirmed, intent_failed) with required metadata (chat turn id, Base id, consent manifest ids if any).
+5. **Extensibility Contracts**: Provide registration contracts so features like Reports, Profiles, Ingestion, Learning Mode can expose their capabilities/validation rules to the router without tight coupling.
 
 ## Scope Guardrails
-- Do **not** implement the full Chat Assistant intent router or Learning Mode; instead, define the contracts they will call (e.g., profile.get_work_context()).
-- Reuse existing onboarding data where possible; specify migrations or defaults for existing Bases so they start with minimal profiles.
-- Keep the spec implementation-agnostic beyond storage layout, consent hooks, commands, and orchestration requirements so /speckit.plan can assign modules/tests.
-- Call out risks (e.g., remote style extraction, stale mastery data) and mandate mitigation steps such as consent manifests, audit logs, and user confirmation flows.
+- Do **not** implement the downstream features themselves (reports, writing assistant, learning mode); limit the spec to routing, confirmation, and orchestration glue plus minimal capability discovery APIs.
+- Maintain compatibility with existing chat commands—the router should generate or invoke them, not replace them.
+- No background automation; the assistant must stay user-driven (per P5/P6) and cannot enqueue hidden jobs without chat-visible confirmation.
+- Explicitly call out risks (e.g., intent misclassification leading to destructive actions) and mandate mitigations such as confidence thresholds, user confirmation loops, and undo guidance.

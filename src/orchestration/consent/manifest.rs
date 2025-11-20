@@ -5,9 +5,7 @@ use crate::{
 use anyhow::Result;
 use serde_json::json;
 
-use super::{
-    require_remote_operation_consent, ConsentManifest, ConsentOperation, ConsentScope,
-};
+use super::{require_remote_operation_consent, ConsentManifest, ConsentOperation, ConsentScope};
 
 /// Builds a prompt manifest describing the remote inference request.
 pub fn build_profile_interview_prompt(

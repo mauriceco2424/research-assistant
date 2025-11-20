@@ -7,8 +7,8 @@ use researchbase::{
     orchestration::profiles::{
         defaults::default_knowledge_profile,
         model::{
-            EvidenceKind, EvidenceRef, KnowledgeEntry, KnowledgeProfile, MasteryLevel,
-            ProfileType, VerificationStatus,
+            EvidenceKind, EvidenceRef, KnowledgeEntry, KnowledgeProfile, MasteryLevel, ProfileType,
+            VerificationStatus,
         },
         service::ProfileService,
         storage::write_profile,

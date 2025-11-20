@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod handlers;
+pub mod intent_router;
 
 use crate::acquisition::{
     discover_candidates, generate_candidates_from_interview, run_acquisition_batch,
@@ -23,10 +24,17 @@ use crate::chat::commands::{
     },
 };
 use crate::chat::handlers::report_updates::{build_completion_summary, queued_message};
+use crate::chat::intent_router::{
+    dispatcher::{IntentDispatcher, IntentExecutor},
+    fallback,
+    parser::IntentParser,
+    suggestions,
+};
 use crate::ingestion::{
     detect_duplicate_groups, format_batch_status, format_duplicate_group, ingest_local_pdfs,
     merge_duplicate_group, refresh_metadata, IngestionRunner, MetadataRefreshRequest,
 };
+use crate::orchestration::intent::{log::IntentLog, payload::IntentPayload};
 use crate::orchestration::{
     log_event, require_remote_operation_consent, CategoryEditEventDetails, CategoryEditType,
     CategoryProposalEvent, ConsentOperation, ConsentScope, EventType, OrchestrationLog,
@@ -35,7 +43,7 @@ use crate::reports::{
     categorization::{proposals::CategoryProposalWorker, split, status::CategoryMetricsCollector},
     generate_and_log_reports,
 };
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::path::Path;
@@ -69,6 +77,87 @@ impl ChatSession {
 
     pub fn list_bases(&self) -> Result<Vec<Base>> {
         self.manager.list_bases()
+    }
+
+    /// Primary chat entrypoint that delegates to the intent router.
+    pub fn handle_message(&mut self, message: &str) -> Result<Vec<String>> {
+        let base = match self.manager.active_base()? {
+            Some(base) => base,
+            None => {
+                return Ok(vec![String::from(
+                    "Select or create a Base in chat before issuing intents.",
+                )]);
+            }
+        };
+        if suggestions::should_handle(message) {
+            return suggestions::build(&self.manager, &base);
+        }
+
+        let parser = IntentParser::new();
+        let chat_turn_id = Uuid::new_v4();
+        let intents = parser.parse(&base, chat_turn_id, message);
+        if intents.is_empty() {
+            let mut responses = vec![fallback::no_match_response(message)];
+            responses.push(fallback::manual_hint());
+            return Ok(responses);
+        }
+
+        let log = IntentLog::for_base(&base)?;
+        for intent in &intents {
+            log.append(intent)?;
+        }
+
+        let dispatcher = IntentDispatcher::new(self.manager.config.acquisition.remote_allowed);
+        dispatcher.run(self, &base, intents)
+    }
+
+    fn execute_summary_intent(&mut self, base: &Base, payload: &IntentPayload) -> Result<String> {
+        let mut entries = self.manager.load_library_entries(base)?;
+        if entries.is_empty() {
+            bail!("No library entries available to summarize. Ingest papers first.");
+        }
+        entries.sort_by_key(|entry| entry.created_at);
+        entries.reverse();
+        let requested = payload
+            .parameters
+            .get("count")
+            .and_then(|value| value.as_u64())
+            .unwrap_or(3);
+        let take_count = requested.max(1).min(entries.len() as u64) as usize;
+        let mut response = format!("Recent {take_count} papers:\n");
+        for entry in entries.into_iter().take(take_count) {
+            let year = entry
+                .year
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "n/a".into());
+            response.push_str(&format!("- {} ({year})\n", entry.title));
+        }
+        Ok(response.trim_end().to_string())
+    }
+
+    fn execute_profile_show_intent(&mut self, payload: &IntentPayload) -> Result<String> {
+        let mut request = ProfileShowRequest::default();
+        let profile_type = profile_type_from_payload(payload)
+            .ok_or_else(|| anyhow::anyhow!("profile.show requires a profile_type"))?;
+        request.profile_type = profile_type;
+        request.include_history = payload
+            .parameters
+            .get("include_history")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+        self.profile_show(request)
+    }
+
+    fn execute_profile_delete_intent(&mut self, payload: &IntentPayload) -> Result<String> {
+        let profile_type = profile_type_from_payload(payload)
+            .ok_or_else(|| anyhow::anyhow!("profile.delete requires a profile_type"))?;
+        bail!(
+            "profile.delete intents require explicit confirmation before execution. Pending approval for `{profile_type}`."
+        );
+    }
+
+    fn execute_remote_infer_intent(&mut self, _payload: &IntentPayload) -> Result<String> {
+        bail!("Remote intents require confirmation before running.");
     }
 
     pub fn select_base(&mut self, base_id: &Uuid) -> Result<()> {
@@ -1180,6 +1269,33 @@ impl ChatSession {
         }
         Ok(response.trim().to_string())
     }
+}
+
+impl IntentExecutor for ChatSession {
+    fn execute_intent(&mut self, base: &Base, payload: &IntentPayload) -> Result<String> {
+        match payload.action.as_str() {
+            "reports.generate_summary" => self.execute_summary_intent(base, payload),
+            "profile.show" => self.execute_profile_show_intent(payload),
+            "profile.delete" => self.execute_profile_delete_intent(payload),
+            "profile.remote_infer" => self.execute_remote_infer_intent(payload),
+            other => bail!("Unknown intent action '{other}'"),
+        }
+    }
+}
+
+fn profile_type_from_payload(payload: &IntentPayload) -> Option<String> {
+    payload
+        .parameters
+        .get("profile_type")
+        .and_then(|value| value.as_str())
+        .map(|value| value.to_string())
+        .or_else(|| {
+            payload
+                .target
+                .get("profile_type")
+                .and_then(|value| value.as_str())
+                .map(|value| value.to_string())
+        })
 }
 
 fn parse_history_range(range_hint: Option<&str>) -> Result<DateTime<Utc>> {

@@ -21,8 +21,8 @@ pub fn read_profile<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<Opti
     if !path.exists() {
         return Ok(None);
     }
-    let data = fs::read(path)
-        .with_context(|| format!("Failed reading profile artifact {:?}", path))?;
+    let data =
+        fs::read(path).with_context(|| format!("Failed reading profile artifact {:?}", path))?;
     let value = serde_json::from_slice(&data)
         .with_context(|| format!("Failed parsing profile artifact {:?}", path))?;
     Ok(Some(value))
@@ -57,8 +57,7 @@ pub fn write_profile_html<P: AsRef<Path>>(path: P, contents: &str) -> Result<Pat
         fs::create_dir_all(parent)
             .with_context(|| format!("Failed creating summary directory {:?}", parent))?;
     }
-    fs::write(path, contents)
-        .with_context(|| format!("Failed writing profile HTML {:?}", path))?;
+    fs::write(path, contents).with_context(|| format!("Failed writing profile HTML {:?}", path))?;
     Ok(path.to_path_buf())
 }
 
