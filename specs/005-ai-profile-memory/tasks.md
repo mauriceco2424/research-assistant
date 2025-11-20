@@ -62,12 +62,12 @@
 
 ### Implementation
 
-- [ ] T017 [P] [US2] Add integration test simulating consent approval/denial during `profile interview` in `tests/integration/profile_interview.rs`.
-- [ ] T018 [US2] Implement interview orchestration state machine (question flow, partial saves) in `src/orchestration/profiles/interview.rs`.
-- [ ] T019 [US2] Build prompt manifest generator + consent logging linkages in `src/orchestration/consent/manifest.rs`.
-- [ ] T020 [US2] Extend `src/chat/commands/profile.rs` with `profile interview`/`profile run writing-style` handlers including confirmation prompts.
-- [ ] T021 [US2] Persist interview outcomes (source attribution, consent metadata, `NEEDS_REMOTE_APPROVAL` flags) in `src/orchestration/profiles/service.rs`.
-- [ ] T021A [US2] Instrument interview completion metrics (local counters + confirmation logs) and extend integration coverage in `tests/integration/profile_interview.rs`.
+- [X] T017 [P] [US2] Add integration test simulating consent approval/denial during `profile interview` in `tests/integration/profile_interview.rs`.
+- [X] T018 [US2] Implement interview orchestration state machine (question flow, partial saves) in `src/orchestration/profiles/interview.rs`.
+- [X] T019 [US2] Build prompt manifest generator + consent logging linkages in `src/orchestration/consent/manifest.rs`.
+- [X] T020 [US2] Extend `src/chat/commands/profile.rs` with `profile interview`/`profile run writing-style` handlers including confirmation prompts.
+- [X] T021 [US2] Persist interview outcomes (source attribution, consent metadata, `NEEDS_REMOTE_APPROVAL` flags) in `src/orchestration/profiles/service.rs`.
+- [X] T021A [US2] Instrument interview completion metrics (local counters + confirmation logs) and extend integration coverage in `tests/integration/profile_interview.rs`.
 
 **Checkpoint**: Interview flows capture fresh data with explicit consent handling and overwrite protection.
 

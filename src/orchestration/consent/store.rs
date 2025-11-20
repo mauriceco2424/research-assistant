@@ -62,6 +62,7 @@ pub enum ConsentOperation {
     FigureExtraction,
     CategoryNarrativeSuggest,
     VisualizationRemoteLayout,
+    ProfileInterviewRemote,
 }
 
 /// File-backed store for consent manifests scoped to a Base.
@@ -168,6 +169,13 @@ pub fn require_remote_operation_consent(
             if !manager.config.acquisition.remote_allowed {
                 anyhow::bail!(
                     "Remote visualization layouts are disabled for this install. Enable remote access before continuing."
+                );
+            }
+        }
+        ConsentOperation::ProfileInterviewRemote => {
+            if !manager.config.acquisition.remote_allowed {
+                anyhow::bail!(
+                    "Remote interviews are disabled for this install. Enable remote access before continuing."
                 );
             }
         }

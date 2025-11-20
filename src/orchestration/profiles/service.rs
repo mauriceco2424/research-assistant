@@ -1,13 +1,16 @@
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::{bail, Result};
-use chrono::Utc;
-use serde::Serialize;
-use serde_json::json;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::bases::{Base, BaseManager, ProfileLayout};
 use crate::orchestration::{
+    consent::request_profile_interview_consent,
     log_profile_event,
     profiles::{
         defaults::{
@@ -15,8 +18,8 @@ use crate::orchestration::{
             default_writing_profile,
         },
         model::{
-            HistoryRef, KnowledgeProfile, ProfileMetadata, ProfileType, RemoteInferenceStatus,
-            UserProfile, WorkProfile, WritingProfile,
+            HistoryRef, KnowledgeProfile, ProfileChangeKind, ProfileMetadata, ProfileType,
+            RemoteInferenceStatus, UserProfile, WorkProfile, WritingProfile,
         },
         render::build_profile_html,
         scope::ProfileScopeStore,
@@ -61,6 +64,30 @@ pub struct ProfileUpdateOutput {
     pub json_path: PathBuf,
     pub html_path: PathBuf,
     pub hash_after: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProfileInterviewOptions {
+    pub profile_type: ProfileType,
+    pub answers: Vec<ProfileFieldChange>,
+    pub requires_remote: bool,
+    pub remote_prompt_hint: Option<String>,
+    pub approve_remote: bool,
+    pub confirm: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProfileInterviewOutcome {
+    pub status: ProfileInterviewStatus,
+    pub event_id: Option<Uuid>,
+    pub manifest_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProfileInterviewStatus {
+    Completed,
+    PendingRemote,
 }
 
 pub struct ProfileService<'a> {
@@ -157,39 +184,150 @@ impl<'a> ProfileService<'a> {
         match profile_type {
             ProfileType::User => {
                 let mut profile = self.load_user_profile()?;
-                let hash_before = canonical_snapshot(&profile);
                 let diff = apply_user_changes(&mut profile, changes)?;
-                self.persist_update(profile_type, &mut profile, diff, hash_before, summarize_user)
+                let hash_before = canonical_snapshot(&profile);
+                self.persist_update(
+                    profile_type,
+                    &mut profile,
+                    diff,
+                    hash_before,
+                    summarize_user,
+                    ProfileChangeKind::ManualEdit,
+                    json!({}),
+                )
             }
             ProfileType::Work => {
                 let mut profile = self.load_work_profile()?;
-                let hash_before = canonical_snapshot(&profile);
                 let diff = apply_work_changes(&mut profile, changes)?;
-                self.persist_update(profile_type, &mut profile, diff, hash_before, summarize_work)
+                let hash_before = canonical_snapshot(&profile);
+                self.persist_update(
+                    profile_type,
+                    &mut profile,
+                    diff,
+                    hash_before,
+                    summarize_work,
+                    ProfileChangeKind::ManualEdit,
+                    json!({}),
+                )
             }
             ProfileType::Writing => {
                 let mut profile = self.load_writing_profile()?;
-                let hash_before = canonical_snapshot(&profile);
                 let diff = apply_writing_changes(&mut profile, changes)?;
+                let hash_before = canonical_snapshot(&profile);
                 self.persist_update(
                     profile_type,
                     &mut profile,
                     diff,
                     hash_before,
                     summarize_writing,
+                    ProfileChangeKind::ManualEdit,
+                    json!({}),
                 )
             }
             ProfileType::Knowledge => {
                 let mut profile = self.load_knowledge_profile()?;
-                let hash_before = canonical_snapshot(&profile);
                 let diff = apply_knowledge_changes(&mut profile, changes)?;
+                let hash_before = canonical_snapshot(&profile);
                 self.persist_update(
                     profile_type,
                     &mut profile,
                     diff,
                     hash_before,
                     summarize_knowledge,
+                    ProfileChangeKind::ManualEdit,
+                    json!({}),
                 )
+            }
+        }
+    }
+
+    pub fn interview(&self, options: ProfileInterviewOptions) -> Result<ProfileInterviewOutcome> {
+        if !options.confirm {
+            bail!("profile interview requires confirm=true");
+        }
+        self.scopes.enforce_local_read(options.profile_type)?;
+        match options.profile_type {
+            ProfileType::User => {
+                let mut profile = self.load_user_profile()?;
+                let mut diff = apply_user_changes(&mut profile, &options.answers)?;
+                if diff.is_empty() {
+                    diff.push("Recorded interview without field changes".into());
+                }
+                let hash_before = canonical_snapshot(&profile);
+                let update = self.persist_update(
+                    options.profile_type,
+                    &mut profile,
+                    diff,
+                    hash_before,
+                    summarize_user,
+                    ProfileChangeKind::Interview,
+                    json!({ "interview": { "requires_remote": false } }),
+                )?;
+                self.record_interview_metric(
+                    options.profile_type,
+                    ProfileInterviewStatus::Completed,
+                    Some(update.event_id),
+                )?;
+                Ok(ProfileInterviewOutcome {
+                    status: ProfileInterviewStatus::Completed,
+                    event_id: Some(update.event_id),
+                    manifest_id: None,
+                })
+            }
+            ProfileType::Work => {
+                let mut profile = self.load_work_profile()?;
+                let mut diff = apply_work_changes(&mut profile, &options.answers)?;
+                if diff.is_empty() {
+                    diff.push("Recorded work interview without field changes".into());
+                }
+                let hash_before = canonical_snapshot(&profile);
+                let update = self.persist_update(
+                    options.profile_type,
+                    &mut profile,
+                    diff,
+                    hash_before,
+                    summarize_work,
+                    ProfileChangeKind::Interview,
+                    json!({ "interview": { "requires_remote": false } }),
+                )?;
+                self.record_interview_metric(
+                    options.profile_type,
+                    ProfileInterviewStatus::Completed,
+                    Some(update.event_id),
+                )?;
+                Ok(ProfileInterviewOutcome {
+                    status: ProfileInterviewStatus::Completed,
+                    event_id: Some(update.event_id),
+                    manifest_id: None,
+                })
+            }
+            ProfileType::Writing => self.handle_writing_interview(options),
+            ProfileType::Knowledge => {
+                let mut profile = self.load_knowledge_profile()?;
+                let mut diff = apply_knowledge_changes(&mut profile, &options.answers)?;
+                if diff.is_empty() {
+                    diff.push("Recorded knowledge interview without field changes".into());
+                }
+                let hash_before = canonical_snapshot(&profile);
+                let update = self.persist_update(
+                    options.profile_type,
+                    &mut profile,
+                    diff,
+                    hash_before,
+                    summarize_knowledge,
+                    ProfileChangeKind::Interview,
+                    json!({ "interview": { "requires_remote": false } }),
+                )?;
+                self.record_interview_metric(
+                    options.profile_type,
+                    ProfileInterviewStatus::Completed,
+                    Some(update.event_id),
+                )?;
+                Ok(ProfileInterviewOutcome {
+                    status: ProfileInterviewStatus::Completed,
+                    event_id: Some(update.event_id),
+                    manifest_id: None,
+                })
             }
         }
     }
@@ -201,6 +339,8 @@ impl<'a> ProfileService<'a> {
         diff_summary: Vec<String>,
         hash_before: Option<String>,
         summarizer: fn(&P) -> ProfileSummary,
+        change_kind: ProfileChangeKind,
+        payload: serde_json::Value,
     ) -> Result<ProfileUpdateOutput>
     where
         P: Serialize + Clone + HasProfileMetadata + HasHistory,
@@ -210,9 +350,8 @@ impl<'a> ProfileService<'a> {
         }
         profile.metadata_mut().last_updated = Utc::now();
         let summary = summarizer(profile);
-        let hash_after = canonical_snapshot(profile);
         let json_path = self.layout.profile_json(slug(profile_type));
-        let _ = write_profile(&json_path, profile)?;
+        let write_outcome = write_profile(&json_path, profile)?;
         let html = build_profile_html(
             profile_type,
             profile.metadata(),
@@ -220,25 +359,24 @@ impl<'a> ProfileService<'a> {
             &summary.fields,
         );
         let html_path = write_profile_html(self.layout.profile_html(slug(profile_type)), &html)?;
+        let event_payload = wrap_payload_with_path(&json_path, payload);
         let event_id = log_profile_event(
             self.manager,
             &self.base,
             ProfileEventDetails {
                 profile_type,
-                change_kind: super::model::ProfileChangeKind::ManualEdit,
+                change_kind,
                 diff_summary: diff_summary.clone(),
                 hash_before,
-                hash_after: hash_after.clone(),
+                hash_after: Some(write_outcome.hash.clone()),
                 undo_token: None,
-                payload: json!({
-                    "path": json_path,
-                }),
+                payload: event_payload,
             },
         )?;
         profile.history_mut().push(HistoryRef {
             event_id,
             timestamp: Utc::now(),
-            hash_after: hash_after.clone().unwrap_or_default(),
+            hash_after: write_outcome.hash.clone(),
         });
         let _ = write_profile(&json_path, profile)?;
         Ok(ProfileUpdateOutput {
@@ -247,7 +385,7 @@ impl<'a> ProfileService<'a> {
             diff_summary,
             json_path,
             html_path,
-            hash_after: hash_after.unwrap_or_default(),
+            hash_after: write_outcome.hash,
         })
     }
 
@@ -280,6 +418,107 @@ impl<'a> ProfileService<'a> {
         let _ = write_profile(&path, &profile)?;
         Ok(profile)
     }
+
+    fn handle_writing_interview(
+        &self,
+        options: ProfileInterviewOptions,
+    ) -> Result<ProfileInterviewOutcome> {
+        let mut profile = self.load_writing_profile()?;
+        let mut diff = apply_writing_changes(&mut profile, &options.answers)?;
+        let mut manifest_id = None;
+        let mut status = ProfileInterviewStatus::Completed;
+        if options.requires_remote {
+            if options.approve_remote {
+                let manifest = request_profile_interview_consent(
+                    self.manager,
+                    &self.base,
+                    ProfileType::Writing,
+                    options.remote_prompt_hint.as_deref(),
+                )?;
+                profile.fields.remote_inference_metadata.status = RemoteInferenceStatus::Approved;
+                profile.fields.remote_inference_metadata.consent_manifest_id =
+                    Some(manifest.manifest_id);
+                profile.fields.remote_inference_metadata.last_remote_source =
+                    options.remote_prompt_hint.clone();
+                manifest_id = Some(manifest.manifest_id);
+                diff.push("Captured remote interview results (approved)".into());
+            } else {
+                profile.fields.remote_inference_metadata.status = RemoteInferenceStatus::Pending;
+                profile.fields.remote_inference_metadata.consent_manifest_id = None;
+                profile.fields.remote_inference_metadata.last_remote_source =
+                    Some("needs_remote_approval".into());
+                diff.push("Flagged remote interview for approval".into());
+                status = ProfileInterviewStatus::PendingRemote;
+            }
+        }
+        if diff.is_empty() {
+            diff.push("Recorded writing interview without field changes".into());
+        }
+        let hash_before = canonical_snapshot(&profile);
+        let payload = json!({
+            "interview": {
+                "requires_remote": options.requires_remote,
+                "remote_prompt_hint": options.remote_prompt_hint,
+                "manifest_id": manifest_id,
+                "status": format!("{status:?}").to_ascii_lowercase(),
+            }
+        });
+        let update = self.persist_update(
+            ProfileType::Writing,
+            &mut profile,
+            diff,
+            hash_before,
+            summarize_writing,
+            ProfileChangeKind::Interview,
+            payload,
+        )?;
+        self.record_interview_metric(ProfileType::Writing, status, Some(update.event_id))?;
+        Ok(ProfileInterviewOutcome {
+            status,
+            event_id: Some(update.event_id),
+            manifest_id,
+        })
+    }
+
+    fn record_interview_metric(
+        &self,
+        profile_type: ProfileType,
+        status: ProfileInterviewStatus,
+        event_id: Option<Uuid>,
+    ) -> Result<()> {
+        let metrics_dir = self.base.ai_layer_path.join("metrics");
+        fs::create_dir_all(&metrics_dir)?;
+        let path = metrics_dir.join("profile_interviews.jsonl");
+        let record = InterviewMetricRecord {
+            timestamp: Utc::now(),
+            profile_type,
+            status,
+            event_id,
+        };
+        let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
+        file.write_all(serde_json::to_string(&record)?.as_bytes())?;
+        file.write_all(b"\n")?;
+        Ok(())
+    }
+}
+
+fn wrap_payload_with_path(path: &PathBuf, payload: Value) -> Value {
+    if payload.is_null() {
+        json!({ "path": path })
+    } else {
+        json!({
+            "path": path,
+            "details": payload
+        })
+    }
+}
+
+#[derive(Serialize)]
+struct InterviewMetricRecord {
+    timestamp: DateTime<Utc>,
+    profile_type: ProfileType,
+    status: ProfileInterviewStatus,
+    event_id: Option<Uuid>,
 }
 
 fn apply_user_changes(profile: &mut UserProfile, changes: &[ProfileFieldChange]) -> Result<Vec<String>> {

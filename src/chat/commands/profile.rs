@@ -9,7 +9,8 @@ use anyhow::{anyhow, bail, Result};
 use crate::{
     bases::{Base, BaseManager},
     orchestration::profiles::service::{
-        ProfileFieldChange, ProfileService, ProfileShowOutput, ProfileUpdateOutput,
+        ProfileFieldChange, ProfileInterviewOptions, ProfileInterviewOutcome,
+        ProfileInterviewStatus, ProfileService, ProfileShowOutput, ProfileUpdateOutput,
     },
 };
 
@@ -37,12 +38,41 @@ impl<'a> ProfileCommandBridge<'a> {
         Ok(format_update_response(&output))
     }
 
-    pub fn interview(&self, _base: &Base, request: ProfileInterviewRequest) -> Result<String> {
-        placeholder_response("interview", &request.profile_type)
+    pub fn interview(&self, base: &Base, request: ProfileInterviewRequest) -> Result<String> {
+        if !request.confirm {
+            bail!("profile interview requires --confirm to proceed.");
+        }
+        let service = ProfileService::new(self.manager, base);
+        let profile_type = service.parse_type(&request.profile_type)?;
+        let answers = parse_field_changes(&request.answers)?;
+        let options = ProfileInterviewOptions {
+            profile_type,
+            answers,
+            requires_remote: request.requires_remote,
+            remote_prompt_hint: request.remote_prompt_hint.clone(),
+            approve_remote: request.approve_remote,
+            confirm: request.confirm,
+        };
+        let outcome = service.interview(options)?;
+        Ok(format_interview_response(&outcome))
     }
 
-    pub fn run(&self, _base: &Base, request: ProfileRunRequest) -> Result<String> {
-        placeholder_response("run", &request.profile_type)
+    pub fn run(&self, base: &Base, request: ProfileRunRequest) -> Result<String> {
+        if !request.run_kind.eq_ignore_ascii_case("writing-style") {
+            bail!("Unsupported profile run '{}'. Only 'writing-style' is available.", request.run_kind);
+        }
+        let mut interview_request = ProfileInterviewRequest::default();
+        interview_request.profile_type = if request.profile_type.is_empty() {
+            "writing".into()
+        } else {
+            request.profile_type.clone()
+        };
+        interview_request.requires_remote = request.requires_remote.unwrap_or(true);
+        interview_request.remote_prompt_hint = request.remote_prompt_hint.clone();
+        interview_request.answers = request.answers.clone();
+        interview_request.confirm = request.confirm;
+        interview_request.approve_remote = request.approve_remote.unwrap_or(true);
+        self.interview(base, interview_request)
     }
 
     pub fn audit(&self, _base: &Base, request: ProfileAuditRequest) -> Result<String> {
@@ -136,6 +166,25 @@ fn format_update_response(output: &ProfileUpdateOutput) -> String {
     response
 }
 
+fn format_interview_response(outcome: &ProfileInterviewOutcome) -> String {
+    let mut response = String::new();
+    match outcome.status {
+        ProfileInterviewStatus::Completed => {
+            response.push_str("profile interview completed.\n");
+        }
+        ProfileInterviewStatus::PendingRemote => {
+            response.push_str("profile interview recorded but needs remote approval.\n");
+        }
+    }
+    if let Some(event_id) = outcome.event_id {
+        response.push_str(&format!("Event ID: {event_id}\n"));
+    }
+    if let Some(manifest_id) = outcome.manifest_id {
+        response.push_str(&format!("Consent manifest: {manifest_id}\n"));
+    }
+    response
+}
+
 fn parse_field_changes(raw: &[String]) -> Result<Vec<ProfileFieldChange>> {
     let mut changes = Vec::new();
     for entry in raw {
@@ -175,12 +224,20 @@ pub struct ProfileInterviewRequest {
     pub profile_type: String,
     pub requires_remote: bool,
     pub remote_prompt_hint: Option<String>,
+    pub answers: Vec<String>,
+    pub confirm: bool,
+    pub approve_remote: bool,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct ProfileRunRequest {
     pub profile_type: String,
     pub run_kind: String,
+    pub requires_remote: Option<bool>,
+    pub remote_prompt_hint: Option<String>,
+    pub answers: Vec<String>,
+    pub confirm: bool,
+    pub approve_remote: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]
