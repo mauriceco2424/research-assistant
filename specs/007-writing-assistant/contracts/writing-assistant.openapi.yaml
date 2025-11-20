@@ -1,0 +1,473 @@
+openapi: 3.0.3
+info:
+  title: Writing Assistant API
+  version: 0.1.0
+  description: REST contracts consumed by chat intent router to orchestrate Writing Assistant operations.
+servers:
+  - url: tauri://localhost
+paths:
+  /writing/projects:
+    get:
+      summary: List writing projects for the active Base.
+      responses:
+        '200':
+          description: Projects returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WritingProject'
+    post:
+      summary: Create a new writing project and run style interview scaffolding.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, baseId]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                baseId:
+                  type: string
+                preferredSlug:
+                  type: string
+                rerunInterview:
+                  type: boolean
+      responses:
+        '201':
+          description: Project created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WritingProject'
+  /writing/projects/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectSlug'
+    patch:
+      summary: Update lifecycle status or metadata for a project.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/ProjectStatus'
+                defaultCompiler:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Updated project manifest.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WritingProject'
+    delete:
+      summary: Archive or delete a project directory (soft delete by default).
+      responses:
+        '204':
+          description: Project archived.
+  /writing/projects/{slug}/style-interview:
+    post:
+      summary: Run or re-run the style interview and update WritingProfile snapshot.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                responses:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/InterviewResponse'
+      responses:
+        '200':
+          description: Updated WritingProfile summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WritingProfile'
+  /writing/projects/{slug}/style-models:
+    post:
+      summary: Ingest style model PDFs, run local analysis, or request remote consent.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sources]
+              properties:
+                sources:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      path:
+                        type: string
+                      requireRemoteAnalysis:
+                        type: boolean
+      responses:
+        '202':
+          description: Style model ingestion scheduled.
+  /writing/projects/{slug}/outline/proposals:
+    post:
+      summary: Generate outline proposals for the project.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                goal:
+                  type: string
+                references:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Outline proposals returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outline:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OutlineNode'
+  /writing/projects/{slug}/outline/{nodeId}/status:
+    post:
+      summary: Accept, reject, or modify an outline node.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+        - $ref: '#/components/parameters/OutlineNodeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected, modified]
+                replacement:
+                  $ref: '#/components/schemas/OutlineNode'
+      responses:
+        '200':
+          description: Updated outline node.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutlineNode'
+  /writing/projects/{slug}/drafts/{nodeId}:
+    post:
+      summary: Generate or regenerate draft content for a section.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+        - $ref: '#/components/parameters/OutlineNodeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instructions:
+                  type: string
+                citeSources:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Draft generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftSection'
+  /writing/projects/{slug}/edits:
+    post:
+      summary: Apply inline edits or citation injections via chat commands.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sectionId, command]
+              properties:
+                sectionId:
+                  type: string
+                command:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        '200':
+          description: Edit applied with diff summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  diff:
+                    type: string
+  /writing/projects/{slug}/citations/verify:
+    post:
+      summary: Validate citations and mark unresolved references as UNVERIFIED.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                citeKeys:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Citation statuses returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  links:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CitationLink'
+  /writing/projects/{slug}/builds:
+    post:
+      summary: Run a local compilation and stream logs.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                compiler:
+                  type: string
+                clean:
+                  type: boolean
+      responses:
+        '202':
+          description: Build started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildSession'
+    get:
+      summary: List recent build sessions.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+      responses:
+        '200':
+          description: Build sessions returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  builds:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BuildSession'
+  /writing/projects/{slug}/undo:
+    post:
+      summary: Revert a prior orchestration event.
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventId]
+              properties:
+                eventId:
+                  type: string
+      responses:
+        '200':
+          description: Undo complete.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revertedEventId:
+                    type: string
+                  status:
+                    type: string
+components:
+  parameters:
+    ProjectSlug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+    OutlineNodeId:
+      name: nodeId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    ProjectStatus:
+      type: string
+      enum: [Draft, Active, Review, Archived]
+    WritingProject:
+      type: object
+      required: [slug, title, baseId, status]
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        baseId:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        defaultCompiler:
+          type: string
+        outlineId:
+          type: string
+        referencedPaperIds:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    WritingProfile:
+      type: object
+      properties:
+        baseId:
+          type: string
+        toneGuidelines:
+          type: object
+        sectionOrdering:
+          type: array
+          items:
+            type: string
+        citationPreferences:
+          type: object
+        styleModelIds:
+          type: array
+          items:
+            type: string
+    InterviewResponse:
+      type: object
+      properties:
+        questionId:
+          type: string
+        answer:
+          type: string
+    OutlineNode:
+      type: object
+      required: [id, title, status]
+      properties:
+        id:
+          type: string
+        parentId:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        status:
+          type: string
+          enum: [proposed, accepted, rejected, drafted]
+        references:
+          type: array
+          items:
+            type: string
+    DraftSection:
+      type: object
+      properties:
+        sectionId:
+          type: string
+        filePath:
+          type: string
+        lastGeneratedAt:
+          type: string
+          format: date-time
+        citations:
+          type: array
+          items:
+            type: string
+        diff:
+          type: string
+    CitationLink:
+      type: object
+      properties:
+        citeKey:
+          type: string
+        paperId:
+          type: string
+        status:
+          type: string
+        lastCheckedAt:
+          type: string
+          format: date-time
+    BuildSession:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        compiler:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        logPath:
+          type: string
+        pdfPath:
+          type: string
+        errorSummary:
+          type: string

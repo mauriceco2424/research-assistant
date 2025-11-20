@@ -1,30 +1,32 @@
-# Spec Argument – Chat Assistant & Intent Routing (Spec 06)
+# Spec Argument - Writing Assistant (Spec 07)
 
-Design the **Chat Assistant + Intent Routing** capability described in `master_spec.md` §3 (Chat Panel) and §14 (Intent Routing & Orchestration), aligned with roadmap item **Spec 06**. Produce a spec that formalizes how natural-language inputs are parsed, confirmed, and dispatched to the existing command surfaces (profiles, reports, ingestion, learning prep, etc.) while preserving constitutional guarantees (P1–P10) and the dual-layer logging requirements established in prior specs.
+Design the **Writing Assistant (LaTeX)** described in `master_spec.md` §8 and roadmap item **Spec 07**. Produce a feature spec that turns the chat-first environment into a local-first co-authoring space: style interviews, outline + draft generation, `.tex/.bib` lifecycle, inline edits, citation injection from the Base, and PDF compilation. The spec must respect the ResearchBase constitution (P1–P10) and build atop prior specs (Spec 05 profiles, Spec 06 intent router).
 
 ## User Intent & Scenarios
-- **Natural Conversation to Commands**: A researcher types “Summarize the last 3 papers I imported and then show my writing profile.” The assistant must detect multiple intents, confirm if the workflow is destructive or long-running, and queue/execute the corresponding orchestration calls (report generation, `profile show writing`) without the user memorizing CLI syntax.
-- **Clarification & Disambiguation**: When a user says “delete the profile,” the assistant should clarify which profile/base, highlight the confirm phrase, and surface constitutional constraints (P6 transparency, P1 local-first) before calling `profile delete`.
-- **Mixed Context Awareness**: Before suggesting actions such as new paper discovery or learning mode, the assistant inspects AI-layer signals (profile scopes, last ingestion timestamp, pending consent items) and offers options (“I can fetch papers, refresh categories, or prep a learning session”) with explicit confirmations.
-- **Orchestration Feedback Loop**: After routing a command, the assistant reports progress updates, surface orchestration event IDs, and instructions for undo/redo so the chat log becomes the authoritative audit trail.
+- **Style Interview & Setup**: Researcher starts “Help me write a survey on multimodal alignment.” Assistant runs a writing-style interview (leveraging WritingProfile + favorite papers), stores preferences, and scaffolds `/User/<Base>/WritingProjects/<slug>/`.
+- **Outline ➜ Draft ➜ Iteration**: User asks for an outline, accepts sections, then says “Draft the intro and weave in the last 3 ingestion highlights.” Assistant generates LaTeX sections referencing category summaries and cites Base papers via `.bib`.
+- **Inline Chat Edits**: Researcher highlights a paragraph (or references section ID) and requests “tighten this paragraph and add a citation for Smith 2021.” Assistant edits the `.tex`, logs diffs, and reports changes with undo pointers.
+- **Build & Preview**: User runs “compile the writing project” and receives PDF build feedback, including LaTeX errors surfaced in chat with file/line context. Builds occur locally; no remote compilation.
+- **Style Model Ingestion**: Researcher points to favorite PDFs to use as style models. Assistant analyzes them locally (no cloud upload) and updates WritingProfile metadata, warning if remote inference would be needed and requesting consent.
 
 ## Constraints & Constitutional Alignment
-- **P1 Local-First / P2 Consent**: The router must never trigger remote inference or acquisition without summarizing the prompt manifest and capturing explicit approval. Cached intents must live locally (no cloud queues).
-- **P3/P4 Dual-Layer**: Every routed action logs an orchestration event (intent id, parsed command, confirmation tokens) so regenerations can recreate the chat decision tree. Chat transcripts remain the user-layer artifact; intent manifests live in AI-layer JSON.
-- **P5 Chat-First**: No new GUI; all routing, confirmations, and progress updates appear inline in chat. Buttons/links are limited to simple quick-reply affordances, not new panels.
-- **P6 Transparency / Undoability**: Non-trivial operations require explicit confirmation (especially destructive tasks). The assistant must surface event IDs + undo instructions in its replies, and bulk actions need “Are you sure?” loops.
-- **P7 Integrity / P8 Learning**: When routing to knowledge or learning flows, the assistant cites the evidence it will use (e.g., KnowledgeProfile entries marked STALE) and labels speculative suggestions as such.
-- **P9/P10 Versioning & Extensibility**: Intent schemas must be versioned and easily extensible so future specs (Writing Assistant, Learning Mode) can register new intents without breaking existing ones.
+- **P1 Local-First / P2 Consent**: All project files live under `/User/<Base>/WritingProjects/`. Any optional remote inference (e.g., style analysis via LLM) requires manifest summaries, explicit approval, and logged consent tokens.
+- **P3/P4 Dual-Layer**: LaTeX artifacts belong to the User layer. AI-layer stores structured writing metadata (outline JSON, revision history, prompt manifests) so drafts can be regenerated. Chat edits must reference deterministic payloads for replay.
+- **P5 Chat-First / Minimal UI**: Every interaction (create project, edit section, compile, view logs) flows through chat. No bespoke editors; instead, assistant surfaces snippets, diff summaries, and file paths for manual editing if desired.
+- **P6 Transparency & Undoability**: Editing commands reply with change summaries, event IDs, and instructions to revert via git-like backups or AI-layer checkpoints. Compilations show logs so users see exactly what happened.
+- **P7 Integrity / P8 Learning**: Citations must map to actual Base entries—no hallucinated references. When the assistant can’t confirm a citation, it labels it “UNVERIFIED” in draft + chat. Writing guidance references KnowledgeProfile + WritingProfile evidence.
+- **P9/P10 Versioning & Extensibility**: Writing project metadata, outline schema, and style interviews must be versioned so future specs (Learning Mode, multi-author workflows) can extend them without migrations.
 
 ## Success Criteria
-1. **Intent Schema & Router**: Define a deterministic JSON schema for parsed intents (action, target, parameters, safety classification) and the routing engine that maps chat utterances to concrete command handlers or follow-up questions.
-2. **Confirmation & Safety Flow**: Specify how the assistant confirms high-impact actions (delete, export, remote inference) including default prompts, timeout behavior, and how confirmations are persisted/logged.
-3. **Ambiguity & Error Recovery**: Describe fallback interactions when the assistant cannot confidently map an intent (e.g., ask clarifying questions, offer suggestions, defer to manual command syntax).
-4. **Orchestration Logging**: Enumerate the orchestration events emitted by the router (intent_detected, intent_confirmed, intent_failed) with required metadata (chat turn id, Base id, consent manifest ids if any).
-5. **Extensibility Contracts**: Provide registration contracts so features like Reports, Profiles, Ingestion, Learning Mode can expose their capabilities/validation rules to the router without tight coupling.
+1. **Project Lifecycle**: Define how writing projects are created, listed, switched, and deleted (folder layout, config JSON, required files). Include slug rules and Base scoping.
+2. **Style Interview & Profiles**: Specify the interview prompts, how results update WritingProfile, how favorite papers become style models, and how remote consent is handled when analysis leaves the device.
+3. **Outline & Draft Generation**: Detail the JSON outline schema, how it maps to `.tex` sections, how users accept/reject sections via chat, and how the assistant references Base artifacts (reports, profiles, papers).
+4. **Inline Editing & Citations**: Describe the command set for editing (insert, rewrite, cite, summarize). Include citation resolution flow, failure handling, undo checkpoints, and AI-layer logging requirements.
+5. **Compilation Workflow**: Outline how the assistant invokes local LaTeX (configurable path), streams logs/errors back to chat, and stores build artifacts. Address environment configuration, retries, and how builds respect local-only policy.
+6. **Safety & Auditability**: Enumerate orchestration events emitted for writing operations (outline_created, draft_generated, section_edited, compile_attempted) with required metadata (project id, files touched, consent ids if any).
 
 ## Scope Guardrails
-- Do **not** implement the downstream features themselves (reports, writing assistant, learning mode); limit the spec to routing, confirmation, and orchestration glue plus minimal capability discovery APIs.
-- Maintain compatibility with existing chat commands—the router should generate or invoke them, not replace them.
-- No background automation; the assistant must stay user-driven (per P5/P6) and cannot enqueue hidden jobs without chat-visible confirmation.
-- Explicitly call out risks (e.g., intent misclassification leading to destructive actions) and mandate mitigations such as confidence thresholds, user confirmation loops, and undo guidance.
+- Focus on LaTeX projects only (no Markdown editor, no collaborative multi-user features yet).
+- Do not implement a full diff viewer UI; limit to chat summaries + file paths.
+- Remote ops limited to optional style analysis; everything else (drafting, citation lookup, compile) must run locally.
+- Assume Spec 06 router dispatches writing commands; this spec defines the capabilities, storage, and behaviors that commands invoke.
