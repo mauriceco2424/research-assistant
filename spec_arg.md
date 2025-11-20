@@ -1,28 +1,29 @@
-# Spec Argument – Reports & Visualizations (Spec 04)
+# Spec Argument – AI Profiles & Long-Term Memory (Spec 05)
 
-Design the **Reports & Visualizations** feature set described in `master_spec.md` §§3, 4, 10, and 11 (roadmap item Spec 04). Produce a single focused spec that turns AI-layer knowledge into regenerable HTML reports (category/global, figure galleries, visualizations) while honoring constitutional principles (P1–P10).
+Design the **AI Profiles** capability described in master_spec.md §7 and roadmap item Spec 05. Produce a spec that defines how the system captures, stores, surfaces, and updates the four long-term profiles (UserProfile, WorkProfile, WritingProfile, KnowledgeProfile) entirely within the AI layer, aligning with constitutional principles (P1–P10) and building on the completed Specs 01–04.
 
 ## User Intent & Scenarios
-- After ingestion (Spec 02) and categorization/editing (Spec 03), the researcher wants commands like `reports regenerate`, `reports configure`, or `reports share` to produce local HTML artifacts they can open or distribute without manual file wrangling.
-- Category reports must include narratives, pinned highlights, backlog/health metrics, optional figure galleries (with consent), and embedded visualizations (concept maps, timelines, citation graphs) per `master_spec.md` §11.
-- Global reports summarize the entire Base (counts, discovery prompts, writing hooks) and expose toggles for heavier assets so offline users can exclude figures/scripts.
-- Whenever figure extraction or remote summarization is requested, the workflow must prompt for consent manifests and log approvals before touching external endpoints.
+- **Profile Interview & Review**: After onboarding, the researcher can run chat flows such as profile show user or profile update writing to inspect/edit structured JSON describing their background, tone, and goals without digging into files.
+- **Context-Aware Assistance**: When asking for writing or planning help, the user expects the AI to reuse stored preferences (tone, project TODOs, concept mastery) rather than re-asking. They also need profile scope <Base> and profile export/delete to control where the AI may apply the data.
+- **Knowledge Tracking**: Before entering Learning Mode, the user wants to view the KnowledgeProfile (concept → mastery → evidence), mark strengths/weaknesses, and link entries to papers/notes, all from chat.
+- **Audit & Undo**: Commands like profile audit work should list when/why entries changed, referencing orchestration event IDs and offering undo guidance so users trust the long-term memory.
 
 ## Constraints & Constitutional Alignment
-- **P1 Local-First & P2 Consent**: Report generation, figure assets, and visualization data stay on the local filesystem. Any remote LLM assistance explicitly lists prompt manifests and requires user approval each time.
-- **P3/P4 Dual-Layer & Regenerability**: HTML outputs are deterministic derivatives of AI-layer sources (categories JSON, narratives, metrics, visualization datasets). Users can delete/rebuild them at any time and expect identical content when sources are unchanged.
-- **P5 Chat-First**: No new persistent UI panes; all report actions originate in chat with clear progress + completion summaries (file paths, durations, warnings).
-- **P6 Transparency**: Long-running report jobs emit orchestration events (start/end timestamps, success/failure, asset counts) and require confirmation before overwriting previous outputs.
-- **P7 Academic Integrity**: Reports cite referenced papers, label AI-generated narratives, and distinguish suggested vs. verified figures/visualizations.
-- **Performance**: Regenerating category + global reports for Bases ≤1 000 papers must finish ≲60 s (per plan/perf targets) with progress copy in chat.
+- **P1 Local-First**: Profiles live in /AI/<Base>/profiles/*.json with optional HTML summaries in /User/<Base>/profiles/; no silent network sync.
+- **P2 Consent**: Any remote summarization (e.g., extracting writing tone from PDFs) must emit a prompt manifest, request consent, and log approvals before touching external endpoints.
+- **P3/P4 Dual-Layer**: Profiles are deterministic artifacts (JSON/Markdown) regenerated from chat inputs + orchestration logs via profile regenerate --from-history.
+- **P5 Chat-First**: All interactions (interviews, edits, exports) happen through chat commands or generated HTML summaries; no new UI panes.
+- **P6 Transparency**: Every profile mutation logs an orchestration event (who/what/when) and exposes undo instructions.
+- **P7 Integrity / P8 Learning**: KnowledgeProfile entries must cite evidence (paper IDs, notes) and clearly label uncertainties so future learning sessions stay academically honest.
 
 ## Success Criteria
-1. Running `reports regenerate --scope all` produces fresh category and global HTML files under `/User/<Base>/reports/`, embedding narratives, pinned highlights, backlog stats, and optional visualizations; chat replies with file paths, durations, and orchestration IDs.
-2. Enabling figure galleries triggers consent prompts, stores approvals (e.g., `figure_gallery_render` manifest), extracts images locally, and embeds them without touching AI-layer history; disabling galleries omits figure assets from new builds.
-3. Users can target specific outputs (e.g., `reports regenerate --category "Neural Methods"` or `reports share --format zip`) and the system bundles only the requested HTML + assets while logging provenance manifests so partners can verify inputs.
-4. Each report bundle references an audit manifest (JSON/Markdown) in the AI layer that enumerates inputs (category snapshot, metrics revision, visualization data) so re-running the same manifest reproduces identical HTML.
+1. Chat commands profile show <user|work|writing|knowledge> render structured summaries with timestamps, evidence references, and edit history pointers.
+2. Guided interviews (profile run writing-style, profile interview knowledge) collect data, confirm before overwriting, and store results locally with consent manifests when remote inference is needed.
+3. KnowledgeProfile maintains concept mastery records (concept, mastery level, evidence, weaknesses) and exposes APIs/events that Learning Mode can consume later.
+4. Running profile export/profile delete obeys privacy expectations (local ZIP export, per-profile wipe), and profile regenerate --from-history rebuilds identical JSON from orchestration logs, proving regenerability.
 
 ## Scope Guardrails
-- Focus strictly on HTML reports, figure galleries, and embedded visualizations. Do **not** expand ingestion, acquisition, writing assistant, or UI shell behavior; those belong to other specs.
-- Reference `.specify/memory/constitution.md` for P1–P10 and call out any potential conflicts (e.g., external visualization libraries) with mitigation guidance.
-- Avoid implementation details (filenames, functions). Define behaviors, consent flows, toggles, and performance/telemetry expectations so `/speckit.plan` and `/speckit.tasks` can translate requirements into architecture.
+- Do **not** implement the full Chat Assistant intent router or Learning Mode; instead, define the contracts they will call (e.g., profile.get_work_context()).
+- Reuse existing onboarding data where possible; specify migrations or defaults for existing Bases so they start with minimal profiles.
+- Keep the spec implementation-agnostic beyond storage layout, consent hooks, commands, and orchestration requirements so /speckit.plan can assign modules/tests.
+- Call out risks (e.g., remote style extraction, stale mastery data) and mandate mitigation steps such as consent manifests, audit logs, and user confirmation flows.
