@@ -20,8 +20,8 @@ pub fn summarize_session(
 ) -> Result<LearningSessionSummary> {
     let summary = LearningSessionSummary {
         session_id,
-        questions: Vec::new(),     // keep lightweight in summary; raw stored per question
-        evaluations: Vec::new(),   // keep lightweight in summary; raw stored per question
+        questions: Vec::new(), // keep lightweight in summary; raw stored per question
+        evaluations: Vec::new(), // keep lightweight in summary; raw stored per question
         knowledge_profile_changes: kp_deltas,
         recommendations,
     };

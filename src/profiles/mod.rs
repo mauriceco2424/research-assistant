@@ -48,7 +48,9 @@ pub fn apply_learning_profile_updates(
         .iter()
         .any(|u| u.session_id != session_id || u.question_id != question_id)
     {
-        bail!("All learning updates in a single call must share the same session/question context.");
+        bail!(
+            "All learning updates in a single call must share the same session/question context."
+        );
     }
     let changes: Vec<ProfileFieldChange> = updates
         .iter()

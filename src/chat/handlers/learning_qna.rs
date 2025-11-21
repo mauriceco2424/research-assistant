@@ -5,11 +5,12 @@ use uuid::Uuid;
 use crate::{
     bases::{Base, BaseManager},
     chat::learning_sessions::{
-        LearningEvaluation, LearningEvaluationOutcome, LearningMode, LearningQuestion,
-        LearningSessionContext, DEFAULT_QUESTION_COUNT,
+        LearningEvaluation, LearningEvaluationOutcome, LearningQuestion, LearningSessionContext,
+        DEFAULT_QUESTION_COUNT,
     },
     orchestration::events::{
-        log_learning_answer_evaluated, log_learning_knowledge_updated, log_learning_question_generated,
+        log_learning_answer_evaluated, log_learning_knowledge_updated,
+        log_learning_question_generated,
     },
     profiles::{apply_learning_profile_updates, learning_undo_marker, LearningProfileUpdate},
     storage::ai_layer::LearningSessionStore,
@@ -54,11 +55,7 @@ pub fn next_question(
         json!({"selection_rationale": question.selection_rationale}),
     )?;
 
-    let msg = format!(
-        "Q{}: {}",
-        question.question_id.to_string(),
-        question.prompt
-    );
+    let msg = format!("Q{}: {}", question.question_id.to_string(), question.prompt);
     Ok((question, msg))
 }
 
@@ -72,7 +69,11 @@ pub fn evaluate_answer(
     kp_updates: Vec<LearningProfileUpdate>,
 ) -> Result<(LearningEvaluation, Option<String>, String)> {
     ensure_active(context)?;
-    let outcome = if user_answer.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+    let outcome = if user_answer
+        .as_ref()
+        .map(|s| s.trim().is_empty())
+        .unwrap_or(true)
+    {
         LearningEvaluationOutcome::Partial
     } else {
         LearningEvaluationOutcome::Correct
@@ -139,18 +140,11 @@ pub fn enforce_default_question_window(
     }
 }
 
-pub fn continue_or_stop_message(
-    context: &LearningSessionContext,
-    current_count: usize,
-) -> String {
+pub fn continue_or_stop_message(context: &LearningSessionContext, current_count: usize) -> String {
     let default_cap = context.default_question_count.max(DEFAULT_QUESTION_COUNT);
     if current_count >= default_cap {
-        format!(
-            "Default set ({default_cap}) complete. Say 'continue' for more or 'stop' to end."
-        )
+        format!("Default set ({default_cap}) complete. Say 'continue' for more or 'stop' to end.")
     } else {
-        format!(
-            "Answered {current_count}/{default_cap}. Continue to next question?"
-        )
+        format!("Answered {current_count}/{default_cap}. Continue to next question?")
     }
 }

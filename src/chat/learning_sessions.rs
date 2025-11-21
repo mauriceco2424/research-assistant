@@ -164,4 +164,3 @@ pub struct LearningSessionSummary {
     #[serde(default)]
     pub recommendations: Vec<String>,
 }
-

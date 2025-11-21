@@ -69,6 +69,9 @@ pub enum EventType {
     WritingCompileAttempted,
     #[serde(rename = "undo_applied")]
     WritingUndoApplied,
+    DiscoveryRequestCreated,
+    DiscoveryApprovalRecorded,
+    DiscoveryAcquisitionLogged,
     LearningSessionStarted,
     LearningQuestionGenerated,
     LearningAnswerEvaluated,

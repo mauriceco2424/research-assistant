@@ -1,4 +1,5 @@
 use crate::bases::{Base, BaseManager};
+use crate::models::orchestration::discovery::DiscoveryEventDetails;
 use crate::orchestration::intent::payload::IntentPayload;
 use crate::orchestration::profiles::model::{ProfileChangeKind, ProfileType};
 use anyhow::Result;
@@ -247,8 +248,8 @@ pub fn log_learning_question_generated(
     mode: impl Into<String>,
     rationale: serde_json::Value,
 ) -> Result<Uuid> {
-    let details =
-        LearningEventDetails::for_question(session_id, question_id, scope, mode).with_payload(rationale);
+    let details = LearningEventDetails::for_question(session_id, question_id, scope, mode)
+        .with_payload(rationale);
     log_learning_event(base, EventType::LearningQuestionGenerated, details)
 }
 
@@ -261,8 +262,8 @@ pub fn log_learning_answer_evaluated(
     mode: impl Into<String>,
     evaluation: serde_json::Value,
 ) -> Result<Uuid> {
-    let details =
-        LearningEventDetails::for_question(session_id, question_id, scope, mode).with_payload(evaluation);
+    let details = LearningEventDetails::for_question(session_id, question_id, scope, mode)
+        .with_payload(evaluation);
     log_learning_event(base, EventType::LearningAnswerEvaluated, details)
 }
 
@@ -293,6 +294,69 @@ pub fn log_learning_undo_applied(
     let details =
         LearningEventDetails::for_session(session_id, scope, mode, 0).with_payload(undo_payload);
     log_learning_event(base, EventType::LearningUndoApplied, details)
+}
+
+/// ----------- Discovery orchestration logging -----------
+
+fn log_discovery_event(
+    base: &Base,
+    event_type: EventType,
+    details: DiscoveryEventDetails,
+) -> Result<Uuid> {
+    let event = OrchestrationEvent {
+        event_id: Uuid::new_v4(),
+        base_id: base.id,
+        event_type,
+        timestamp: Utc::now(),
+        details: serde_json::to_value(details)?,
+    };
+    OrchestrationLog::for_base(base).append_event(&event)?;
+    Ok(event.event_id)
+}
+
+pub fn log_discovery_request(
+    _manager: &BaseManager,
+    base: &Base,
+    details: DiscoveryEventDetails,
+) -> Result<Uuid> {
+    log_discovery_event(base, EventType::DiscoveryRequestCreated, details)
+}
+
+pub fn log_discovery_approval(
+    _manager: &BaseManager,
+    base: &Base,
+    request: &crate::models::discovery::DiscoveryRequestRecord,
+    approval: &crate::models::discovery::DiscoveryApprovalBatch,
+) -> Result<Uuid> {
+    let details = DiscoveryEventDetails::new()
+        .with_request(
+            request.request_id,
+            request.mode.clone(),
+            request
+                .topic
+                .clone()
+                .unwrap_or_else(|| "unspecified".to_string()),
+        )
+        .with_batch(approval.batch_id, approval.acquisition_mode.clone())
+        .with_manifest_path(approval.consent_manifest_path.clone().unwrap_or_default());
+    log_discovery_event(base, EventType::DiscoveryApprovalRecorded, details)
+}
+
+pub fn log_discovery_acquisition(
+    _manager: &BaseManager,
+    base: &Base,
+    approval: &crate::models::discovery::DiscoveryApprovalBatch,
+    _record: &crate::models::discovery::DiscoveryAcquisitionRecord,
+) -> Result<Uuid> {
+    let details = DiscoveryEventDetails::new()
+        .with_batch(approval.batch_id, approval.acquisition_mode.clone())
+        .with_manifest_path(
+            approval
+                .consent_manifest_path
+                .clone()
+                .unwrap_or_else(|| "".into()),
+        );
+    log_discovery_event(base, EventType::DiscoveryAcquisitionLogged, details)
 }
 
 /// Structured payload logged for writing assistant operations.

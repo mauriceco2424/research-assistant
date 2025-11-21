@@ -15,6 +15,10 @@ const OUTLINE_FILE: &str = "outline.json";
 const DRAFTS_DIR: &str = "draft_sections";
 const UNDO_DIR: &str = "undo";
 const LEARNING_DIR: &str = "learning_sessions";
+const DISCOVERY_DIR: &str = "paper_discovery";
+const REQUESTS_DIR: &str = "requests";
+const APPROVALS_DIR: &str = "approvals";
+const ACQUISITIONS_DIR: &str = "acquisitions";
 const CONTEXT_FILE: &str = "context.json";
 const REGENERATION_FILE: &str = "regeneration_pointer.json";
 const REGENERATION_TEST_FILE: &str = "regeneration_dry_run.log";
@@ -126,7 +130,7 @@ impl<'a> LearningSessionStore<'a> {
         Self { base }
     }
 
-    fn session_root(&self, session_id: &Uuid) -> PathBuf {
+    pub fn session_root(&self, session_id: &Uuid) -> PathBuf {
         self.base
             .ai_layer_path
             .join(LEARNING_DIR)
@@ -166,10 +170,7 @@ impl<'a> LearningSessionStore<'a> {
         Ok(path)
     }
 
-    pub fn load_context<T: DeserializeOwned>(
-        &self,
-        session_id: &Uuid,
-    ) -> WritingResult<Option<T>> {
+    pub fn load_context<T: DeserializeOwned>(&self, session_id: &Uuid) -> WritingResult<Option<T>> {
         let path = self.session_root(session_id).join(CONTEXT_FILE);
         read_json(&path)
     }
@@ -221,11 +222,7 @@ impl<'a> LearningSessionStore<'a> {
         Ok(path)
     }
 
-    pub fn save_regeneration_pointer(
-        &self,
-        session_id: &Uuid,
-        pointer: &Value,
-    ) -> Result<PathBuf> {
+    pub fn save_regeneration_pointer(&self, session_id: &Uuid, pointer: &Value) -> Result<PathBuf> {
         self.ensure_root(session_id)?;
         let path = self.session_root(session_id).join(REGENERATION_FILE);
         write_json(&path, pointer)?;
@@ -233,10 +230,7 @@ impl<'a> LearningSessionStore<'a> {
     }
 
     /// Perform a dry-run regeneration check by confirming presence of core artifacts.
-    pub fn dry_run_regeneration_check(
-        &self,
-        session_id: &Uuid,
-    ) -> Result<PathBuf> {
+    pub fn dry_run_regeneration_check(&self, session_id: &Uuid) -> Result<PathBuf> {
         // Verify that context and at least one question/evaluation exist.
         let context_path = self.session_root(session_id).join(CONTEXT_FILE);
         let summary_path = self.summary_path(session_id);
@@ -249,8 +243,85 @@ impl<'a> LearningSessionStore<'a> {
         // Record a lightweight log of the dry-run result.
         let path = self.session_root(session_id).join(REGENERATION_TEST_FILE);
         let timestamp = chrono::Utc::now().to_rfc3339();
-        fs::write(&path, format!("[OK] Dry-run regeneration check at {timestamp}\n"))?;
+        fs::write(
+            &path,
+            format!("[OK] Dry-run regeneration check at {timestamp}\n"),
+        )?;
         Ok(path)
+    }
+}
+
+/// Helper for storing discovery requests, approvals, and acquisition outcomes.
+pub struct DiscoveryStore<'a> {
+    base: &'a Base,
+}
+
+impl<'a> DiscoveryStore<'a> {
+    pub fn new(base: &'a Base) -> Self {
+        Self { base }
+    }
+
+    fn root(&self) -> PathBuf {
+        self.base.ai_layer_path.join(DISCOVERY_DIR)
+    }
+
+    fn requests_dir(&self) -> PathBuf {
+        self.root().join(REQUESTS_DIR)
+    }
+
+    fn approvals_dir(&self) -> PathBuf {
+        self.root().join(APPROVALS_DIR)
+    }
+
+    fn acquisitions_dir(&self) -> PathBuf {
+        self.root().join(ACQUISITIONS_DIR)
+    }
+
+    pub fn save_request(
+        &self,
+        record: &crate::models::discovery::DiscoveryRequestRecord,
+    ) -> WritingResult<()> {
+        let dir = self.requests_dir();
+        fs::create_dir_all(&dir).with_context(|| {
+            format!("Failed to create discovery requests dir {}", dir.display())
+        })?;
+        let path = dir.join(format!("{}.json", record.request_id));
+        write_json(&path, record)
+    }
+
+    pub fn load_request(
+        &self,
+        request_id: &Uuid,
+    ) -> WritingResult<Option<crate::models::discovery::DiscoveryRequestRecord>> {
+        let path = self.requests_dir().join(format!("{request_id}.json"));
+        read_json(&path)
+    }
+
+    pub fn save_approval(
+        &self,
+        batch: &crate::models::discovery::DiscoveryApprovalBatch,
+    ) -> WritingResult<()> {
+        let dir = self.approvals_dir();
+        fs::create_dir_all(&dir).with_context(|| {
+            format!("Failed to create discovery approvals dir {}", dir.display())
+        })?;
+        let path = dir.join(format!("{}.json", batch.batch_id));
+        write_json(&path, batch)
+    }
+
+    pub fn save_acquisition(
+        &self,
+        record: &crate::models::discovery::DiscoveryAcquisitionRecord,
+    ) -> WritingResult<()> {
+        let dir = self.acquisitions_dir();
+        fs::create_dir_all(&dir).with_context(|| {
+            format!(
+                "Failed to create discovery acquisitions dir {}",
+                dir.display()
+            )
+        })?;
+        let path = dir.join(format!("{}.json", record.batch_id));
+        write_json(&path, record)
     }
 }
 
