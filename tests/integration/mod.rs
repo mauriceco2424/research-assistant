@@ -55,6 +55,10 @@ mod intent_router_execute;
 mod intent_router_failure;
 mod intent_router_confirmation;
 mod intent_router_suggestions;
+mod discovery_latency;
+mod discovery_audit;
+mod discovery_provenance;
+mod discovery_needs_pdf;
 pub mod support;
 
 #[test]

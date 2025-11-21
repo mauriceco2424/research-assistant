@@ -2,6 +2,7 @@ use crate::bases::{Base, BaseManager};
 use crate::models::discovery::{
     AcquisitionMode, DiscoveryApprovalBatch, DiscoveryCandidate, DiscoveryMode,
 };
+use crate::orchestration::events::log_discovery_request;
 use crate::services::acquisition::discovery::approve_and_acquire;
 use crate::services::discovery::gap::generate_gap_candidates;
 use crate::services::discovery::session::generate_session_followups;
@@ -67,14 +68,27 @@ pub fn create_discovery_request(
         }
     };
 
-    let record = persist_request(
-        base,
-        payload.mode,
-        payload.topic,
-        payload.gap_id,
-        payload.session_id,
-        candidates.clone(),
-    )?;
+    let mode = payload.mode;
+    let topic = payload.topic.clone();
+    let gap_id = payload.gap_id.clone();
+    let session_id = payload.session_id;
+    let record = persist_request(base, mode, topic, gap_id, session_id, candidates.clone())?;
+    // Log orchestration event for transparency.
+    let scope_label = match record.mode {
+        DiscoveryMode::Topic => record.topic.clone().unwrap_or_else(|| "unspecified".into()),
+        DiscoveryMode::Gap => record
+            .gap_id
+            .clone()
+            .unwrap_or_else(|| "gap-unknown".into()),
+        DiscoveryMode::Session => record
+            .session_id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "session-unknown".into()),
+    };
+    let details = crate::models::orchestration::discovery::DiscoveryEventDetails::new()
+        .with_request(record.request_id, record.mode.clone(), scope_label)
+        .with_endpoints(Vec::new());
+    log_discovery_request(manager, base, details)?;
     Ok(DiscoveryRequestResponse {
         request_id: record.request_id,
         candidates,

@@ -323,6 +323,22 @@ impl<'a> DiscoveryStore<'a> {
         let path = dir.join(format!("{}.json", record.batch_id));
         write_json(&path, record)
     }
+
+    pub fn load_approval(
+        &self,
+        batch_id: &Uuid,
+    ) -> WritingResult<Option<crate::models::discovery::DiscoveryApprovalBatch>> {
+        let path = self.approvals_dir().join(format!("{batch_id}.json"));
+        read_json(&path)
+    }
+
+    pub fn load_acquisition(
+        &self,
+        batch_id: &Uuid,
+    ) -> WritingResult<Option<crate::models::discovery::DiscoveryAcquisitionRecord>> {
+        let path = self.acquisitions_dir().join(format!("{batch_id}.json"));
+        read_json(&path)
+    }
 }
 
 pub fn read_json<T: DeserializeOwned>(path: &Path) -> WritingResult<Option<T>> {

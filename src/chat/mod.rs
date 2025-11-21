@@ -7,6 +7,9 @@ use crate::acquisition::{
     discover_candidates, generate_candidates_from_interview, run_acquisition_batch,
     run_figure_extraction, undo_last_batch, CandidatePaper, InterviewAnswers,
 };
+use crate::api::discovery::{
+    approve_candidates, create_discovery_request, ApprovalPayload, DiscoveryRequestPayload,
+};
 use crate::bases::{
     apply_narrative_update, category_slug, merge_categories, move_papers, AssignmentSource,
     AssignmentStatus, Base, BaseManager, CategoryAssignment, CategoryAssignmentsIndex,
@@ -35,6 +38,7 @@ use crate::ingestion::{
     detect_duplicate_groups, format_batch_status, format_duplicate_group, ingest_local_pdfs,
     merge_duplicate_group, refresh_metadata, IngestionRunner, MetadataRefreshRequest,
 };
+use crate::models::discovery::{AcquisitionMode, DiscoveryMode};
 use crate::orchestration::intent::{log::IntentLog, payload::IntentPayload};
 use crate::orchestration::{
     log_event, require_remote_operation_consent, CategoryEditEventDetails, CategoryEditType,
@@ -592,6 +596,119 @@ impl ChatSession {
             batch.batch_id,
             candidates.len(),
             topic
+        ))
+    }
+
+    /// Create a discovery request (topic mode) and return candidate summary.
+    pub fn discovery_request_topic(&mut self, topic: &str, count: usize) -> Result<String> {
+        let base = self.active_base()?;
+        let payload = DiscoveryRequestPayload {
+            mode: DiscoveryMode::Topic,
+            topic: Some(topic.to_string()),
+            gap_id: None,
+            session_id: None,
+            count: Some(count),
+        };
+        let response = create_discovery_request(&self.manager, &base, payload)?;
+        let mut lines = vec![format!(
+            "[discovery] request {} for topic '{}' ({} candidates)",
+            response.request_id,
+            topic,
+            response.candidates.len()
+        )];
+        for c in &response.candidates {
+            lines.push(format!(
+                "- {} | {} | {:?} | id={}",
+                c.metadata_summary(),
+                c.rationale.clone().unwrap_or_default(),
+                c.identifiers,
+                c.id
+            ));
+        }
+        Ok(lines.join("\n"))
+    }
+
+    /// Gap-based discovery request and candidate summary.
+    pub fn discovery_request_gap(&mut self, gap_label: &str) -> Result<String> {
+        let base = self.active_base()?;
+        let payload = DiscoveryRequestPayload {
+            mode: DiscoveryMode::Gap,
+            topic: None,
+            gap_id: Some(gap_label.to_string()),
+            session_id: None,
+            count: Some(5),
+        };
+        let response = create_discovery_request(&self.manager, &base, payload)?;
+        let mut lines = vec![format!(
+            "[discovery] request {} for gap '{}' ({} candidates)",
+            response.request_id,
+            gap_label,
+            response.candidates.len()
+        )];
+        for c in &response.candidates {
+            lines.push(format!(
+                "- {} | {} | id={}",
+                c.metadata_summary(),
+                c.rationale.clone().unwrap_or_else(|| gap_label.to_string()),
+                c.id
+            ));
+        }
+        Ok(lines.join("\n"))
+    }
+
+    /// Session follow-up discovery request and candidate summary.
+    pub fn discovery_request_session(&mut self, session_id: Uuid) -> Result<String> {
+        let base = self.active_base()?;
+        let payload = DiscoveryRequestPayload {
+            mode: DiscoveryMode::Session,
+            topic: None,
+            gap_id: None,
+            session_id: Some(session_id),
+            count: Some(5),
+        };
+        let response = create_discovery_request(&self.manager, &base, payload)?;
+        let mut lines = vec![format!(
+            "[discovery] request {} for session {} ({} candidates)",
+            response.request_id,
+            session_id,
+            response.candidates.len()
+        )];
+        for c in &response.candidates {
+            lines.push(format!(
+                "- {} | {} | id={}",
+                c.metadata_summary(),
+                c.rationale.clone().unwrap_or_else(|| format!("session {session_id}")),
+                c.id
+            ));
+        }
+        Ok(lines.join("\n"))
+    }
+
+    /// Approve candidates for a discovery request and trigger acquisition.
+    pub fn discovery_approve(
+        &mut self,
+        request_id: Uuid,
+        candidate_ids: Vec<Uuid>,
+        acquisition_mode: AcquisitionMode,
+        consent_manifest_path: Option<String>,
+    ) -> Result<String> {
+        if candidate_ids.is_empty() {
+            bail!("Provide at least one candidate id to approve.");
+        }
+        let base = self.active_base()?;
+        let payload = ApprovalPayload {
+            request_id,
+            acquisition_mode,
+            candidate_ids: candidate_ids.clone(),
+            consent_manifest_path,
+        };
+        let approval = approve_candidates(&self.manager, &base, payload)?;
+        Ok(format!(
+            "[discovery] approved batch {} for request {} ({} candidates, mode {:?})",
+            approval.batch.batch_id,
+            request_id,
+            candidate_ids.len(),
+            approval.batch.acquisition_mode
         ))
     }
 
