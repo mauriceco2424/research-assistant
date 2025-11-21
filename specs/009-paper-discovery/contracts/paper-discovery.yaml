@@ -1,0 +1,153 @@
+openapi: 3.0.3
+info:
+  title: Paper Discovery Consent Workflow
+  version: "0.1.0"
+paths:
+  /discovery/requests:
+    post:
+      summary: Create discovery request and return candidate list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode:
+                  type: string
+                  enum: [topic, gap, session]
+                topic:
+                  type: string
+                  description: Required when mode=topic
+                gap_id:
+                  type: string
+                  description: Required when mode=gap
+                session_id:
+                  type: string
+                  description: Required when mode=session
+      responses:
+        "200":
+          description: Candidates returned
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request_id, candidates]
+                properties:
+                  request_id:
+                    type: string
+                  candidates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CandidatePaper"
+  /discovery/approvals:
+    post:
+      summary: Approve candidates for acquisition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id, acquisition_mode, candidate_ids]
+              properties:
+                request_id:
+                  type: string
+                acquisition_mode:
+                  type: string
+                  enum: [metadata-only, metadata+pdf]
+                candidate_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "202":
+          description: Approval accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [batch_id, consent_recorded]
+                properties:
+                  batch_id:
+                    type: string
+                  consent_recorded:
+                    type: boolean
+  /discovery/approvals/{batch_id}/status:
+    get:
+      summary: Get acquisition status for an approval batch
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Status summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [batch_id, outcomes]
+                properties:
+                  batch_id:
+                    type: string
+                  outcomes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AcquisitionOutcome"
+components:
+  schemas:
+    CandidatePaper:
+      type: object
+      required: [id, title, source_link, rationale]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        venue:
+          type: string
+        year:
+          type: integer
+        source_link:
+          type: string
+        rationale:
+          type: string
+        identifiers:
+          type: object
+          properties:
+            doi:
+              type: string
+            arxiv:
+              type: string
+        duplicate_match:
+          type: object
+          description: Duplicate detection result
+          properties:
+            matched_record_id:
+              type: string
+            matched_via:
+              type: string
+              enum: [doi, arxiv, title-author-year]
+    AcquisitionOutcome:
+      type: object
+      required: [candidate_id, outcome]
+      properties:
+        candidate_id:
+          type: string
+        outcome:
+          type: string
+          enum: [success, needs_pdf, skipped]
+        error_reason:
+          type: string
+        provenance:
+          type: string
+        pdf_path:
+          type: string

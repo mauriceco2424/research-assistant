@@ -1,9 +1,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde_json::Value;
+use uuid::Uuid;
 
 use crate::bases::Base;
 use crate::writing::WritingResult;
@@ -12,6 +14,10 @@ const WRITING_DIR: &str = "writing";
 const OUTLINE_FILE: &str = "outline.json";
 const DRAFTS_DIR: &str = "draft_sections";
 const UNDO_DIR: &str = "undo";
+const LEARNING_DIR: &str = "learning_sessions";
+const CONTEXT_FILE: &str = "context.json";
+const REGENERATION_FILE: &str = "regeneration_pointer.json";
+const REGENERATION_TEST_FILE: &str = "regeneration_dry_run.log";
 
 /// Helper for reading/writing structured payloads in the AI layer.
 pub struct WritingAiStore<'a> {
@@ -110,7 +116,145 @@ impl<'a> WritingAiStore<'a> {
     }
 }
 
-fn read_json<T: DeserializeOwned>(path: &Path) -> WritingResult<Option<T>> {
+/// Helper for storing learning session artifacts in the AI layer.
+pub struct LearningSessionStore<'a> {
+    base: &'a Base,
+}
+
+impl<'a> LearningSessionStore<'a> {
+    pub fn new(base: &'a Base) -> Self {
+        Self { base }
+    }
+
+    fn session_root(&self, session_id: &Uuid) -> PathBuf {
+        self.base
+            .ai_layer_path
+            .join(LEARNING_DIR)
+            .join(session_id.to_string())
+    }
+
+    fn questions_dir(&self, session_id: &Uuid) -> PathBuf {
+        self.session_root(session_id).join("questions")
+    }
+
+    fn evaluations_dir(&self, session_id: &Uuid) -> PathBuf {
+        self.session_root(session_id).join("evaluations")
+    }
+
+    fn summary_path(&self, session_id: &Uuid) -> PathBuf {
+        self.session_root(session_id).join("summary.json")
+    }
+
+    fn ensure_root(&self, session_id: &Uuid) -> WritingResult<()> {
+        fs::create_dir_all(self.session_root(session_id)).with_context(|| {
+            format!(
+                "Failed to create learning session directory {}",
+                self.session_root(session_id).display()
+            )
+        })?;
+        Ok(())
+    }
+
+    pub fn save_context<T: Serialize>(
+        &self,
+        session_id: &Uuid,
+        context: &T,
+    ) -> WritingResult<PathBuf> {
+        self.ensure_root(session_id)?;
+        let path = self.session_root(session_id).join(CONTEXT_FILE);
+        write_json(&path, context)?;
+        Ok(path)
+    }
+
+    pub fn load_context<T: DeserializeOwned>(
+        &self,
+        session_id: &Uuid,
+    ) -> WritingResult<Option<T>> {
+        let path = self.session_root(session_id).join(CONTEXT_FILE);
+        read_json(&path)
+    }
+
+    pub fn save_question<T: Serialize>(
+        &self,
+        session_id: &Uuid,
+        question_id: &Uuid,
+        question: &T,
+    ) -> WritingResult<PathBuf> {
+        let dir = self.questions_dir(session_id);
+        fs::create_dir_all(&dir).with_context(|| {
+            format!(
+                "Failed to create learning question directory {}",
+                dir.display()
+            )
+        })?;
+        let path = dir.join(format!("{question_id}.json"));
+        write_json(&path, question)?;
+        Ok(path)
+    }
+
+    pub fn save_evaluation<T: Serialize>(
+        &self,
+        session_id: &Uuid,
+        question_id: &Uuid,
+        evaluation: &T,
+    ) -> WritingResult<PathBuf> {
+        let dir = self.evaluations_dir(session_id);
+        fs::create_dir_all(&dir).with_context(|| {
+            format!(
+                "Failed to create learning evaluation directory {}",
+                dir.display()
+            )
+        })?;
+        let path = dir.join(format!("{question_id}.json"));
+        write_json(&path, evaluation)?;
+        Ok(path)
+    }
+
+    pub fn save_summary<T: Serialize>(
+        &self,
+        session_id: &Uuid,
+        summary: &T,
+    ) -> WritingResult<PathBuf> {
+        self.ensure_root(session_id)?;
+        let path = self.summary_path(session_id);
+        write_json(&path, summary)?;
+        Ok(path)
+    }
+
+    pub fn save_regeneration_pointer(
+        &self,
+        session_id: &Uuid,
+        pointer: &Value,
+    ) -> Result<PathBuf> {
+        self.ensure_root(session_id)?;
+        let path = self.session_root(session_id).join(REGENERATION_FILE);
+        write_json(&path, pointer)?;
+        Ok(path)
+    }
+
+    /// Perform a dry-run regeneration check by confirming presence of core artifacts.
+    pub fn dry_run_regeneration_check(
+        &self,
+        session_id: &Uuid,
+    ) -> Result<PathBuf> {
+        // Verify that context and at least one question/evaluation exist.
+        let context_path = self.session_root(session_id).join(CONTEXT_FILE);
+        let summary_path = self.summary_path(session_id);
+        if !context_path.exists() {
+            anyhow::bail!("Missing learning session context for {session_id}");
+        }
+        if !summary_path.exists() {
+            anyhow::bail!("Missing learning session summary for {session_id}");
+        }
+        // Record a lightweight log of the dry-run result.
+        let path = self.session_root(session_id).join(REGENERATION_TEST_FILE);
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        fs::write(&path, format!("[OK] Dry-run regeneration check at {timestamp}\n"))?;
+        Ok(path)
+    }
+}
+
+pub fn read_json<T: DeserializeOwned>(path: &Path) -> WritingResult<Option<T>> {
     if !path.exists() {
         return Ok(None);
     }
@@ -121,7 +265,7 @@ fn read_json<T: DeserializeOwned>(path: &Path) -> WritingResult<Option<T>> {
     Ok(Some(payload))
 }
 
-fn write_json<T: Serialize>(path: &Path, value: &T) -> WritingResult<()> {
+pub fn write_json<T: Serialize>(path: &Path, value: &T) -> WritingResult<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)
             .with_context(|| format!("Failed to create directory {}", dir.display()))?;

@@ -153,6 +153,148 @@ fn log_intent_event(
     Ok(event.event_id)
 }
 
+/// Structured payload for learning session lifecycle events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LearningEventDetails {
+    pub session_id: Uuid,
+    #[serde(default)]
+    pub question_id: Option<Uuid>,
+    #[serde(default)]
+    pub scope: String,
+    #[serde(default)]
+    pub mode: String,
+    #[serde(default)]
+    pub default_question_count: Option<usize>,
+    #[serde(default)]
+    pub payload: serde_json::Value,
+}
+
+impl LearningEventDetails {
+    fn for_session(
+        session_id: Uuid,
+        scope: impl Into<String>,
+        mode: impl Into<String>,
+        default_question_count: usize,
+    ) -> Self {
+        Self {
+            session_id,
+            question_id: None,
+            scope: scope.into(),
+            mode: mode.into(),
+            default_question_count: Some(default_question_count),
+            payload: serde_json::Value::Null,
+        }
+    }
+
+    fn for_question(
+        session_id: Uuid,
+        question_id: Uuid,
+        scope: impl Into<String>,
+        mode: impl Into<String>,
+    ) -> Self {
+        Self {
+            session_id,
+            question_id: Some(question_id),
+            scope: scope.into(),
+            mode: mode.into(),
+            default_question_count: None,
+            payload: serde_json::Value::Null,
+        }
+    }
+
+    fn with_payload(mut self, payload: serde_json::Value) -> Self {
+        self.payload = payload;
+        self
+    }
+}
+
+fn log_learning_event(
+    base: &Base,
+    event_type: EventType,
+    details: LearningEventDetails,
+) -> Result<Uuid> {
+    let event = OrchestrationEvent {
+        event_id: Uuid::new_v4(),
+        base_id: base.id,
+        event_type,
+        timestamp: Utc::now(),
+        details: serde_json::to_value(details)?,
+    };
+    let log = OrchestrationLog::for_base(base);
+    log.append_event(&event)?;
+    Ok(event.event_id)
+}
+
+pub fn log_learning_session_started(
+    _manager: &BaseManager,
+    base: &Base,
+    session_id: Uuid,
+    scope: impl Into<String>,
+    mode: impl Into<String>,
+    default_question_count: usize,
+) -> Result<Uuid> {
+    let details =
+        LearningEventDetails::for_session(session_id, scope, mode, default_question_count);
+    log_learning_event(base, EventType::LearningSessionStarted, details)
+}
+
+pub fn log_learning_question_generated(
+    _manager: &BaseManager,
+    base: &Base,
+    session_id: Uuid,
+    question_id: Uuid,
+    scope: impl Into<String>,
+    mode: impl Into<String>,
+    rationale: serde_json::Value,
+) -> Result<Uuid> {
+    let details =
+        LearningEventDetails::for_question(session_id, question_id, scope, mode).with_payload(rationale);
+    log_learning_event(base, EventType::LearningQuestionGenerated, details)
+}
+
+pub fn log_learning_answer_evaluated(
+    _manager: &BaseManager,
+    base: &Base,
+    session_id: Uuid,
+    question_id: Uuid,
+    scope: impl Into<String>,
+    mode: impl Into<String>,
+    evaluation: serde_json::Value,
+) -> Result<Uuid> {
+    let details =
+        LearningEventDetails::for_question(session_id, question_id, scope, mode).with_payload(evaluation);
+    log_learning_event(base, EventType::LearningAnswerEvaluated, details)
+}
+
+pub fn log_learning_knowledge_updated(
+    _manager: &BaseManager,
+    base: &Base,
+    session_id: Uuid,
+    question_id: Option<Uuid>,
+    scope: impl Into<String>,
+    mode: impl Into<String>,
+    update_payload: serde_json::Value,
+) -> Result<Uuid> {
+    let mut details =
+        LearningEventDetails::for_session(session_id, scope, mode, 0).with_payload(update_payload);
+    details.question_id = question_id;
+    details.default_question_count = None;
+    log_learning_event(base, EventType::LearningKnowledgeUpdated, details)
+}
+
+pub fn log_learning_undo_applied(
+    _manager: &BaseManager,
+    base: &Base,
+    session_id: Uuid,
+    scope: impl Into<String>,
+    mode: impl Into<String>,
+    undo_payload: serde_json::Value,
+) -> Result<Uuid> {
+    let details =
+        LearningEventDetails::for_session(session_id, scope, mode, 0).with_payload(undo_payload);
+    log_learning_event(base, EventType::LearningUndoApplied, details)
+}
+
 /// Structured payload logged for writing assistant operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WritingEventDetails {

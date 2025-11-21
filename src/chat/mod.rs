@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod handlers;
 pub mod intent_router;
+pub mod learning_sessions;
 
 use crate::acquisition::{
     discover_candidates, generate_candidates_from_interview, run_acquisition_batch,
