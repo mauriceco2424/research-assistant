@@ -10,9 +10,19 @@ use crate::bases::{Base, CompilerBinary};
 
 use super::WritingResult;
 
-const PROJECTS_DIR: &str = "WritingProjects";
-const MANIFEST_FILE: &str = "project.json";
+pub const PROJECTS_DIR: &str = "WritingProjects";
+pub const MANIFEST_FILE: &str = "project.json";
 const MANIFEST_VERSION: &str = "1.0.0";
+const DEFAULT_SLUG_PREFIX: &str = "writing-project";
+const MAIN_TEX_TEMPLATE: &str = r#"\documentclass{article}
+
+\begin{document}
+% Writing Assistant will populate sections from /sections.
+\end{document}
+"#;
+const BIB_TEMPLATE: &str = "% Managed by Writing Assistant. Citations sync with Paper Base.\n";
+const SECTIONS_PLACEHOLDER: &str = "% Section drafts generated via /writing commands.\n";
+const GITKEEP_FILE: &str = ".gitkeep";
 
 /// Stable manifest describing a writing project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,6 +152,69 @@ fn default_manifest_compiler() -> CompilerBinary {
     CompilerBinary::new("tectonic")
 }
 
+/// Returns the absolute path to the `/WritingProjects` directory for the Base.
+pub fn projects_root(base: &Base) -> PathBuf {
+    base.user_layer_path.join(PROJECTS_DIR)
+}
+
+/// Returns true if a project directory already exists for the provided slug.
+pub fn project_exists(base: &Base, slug: &str) -> bool {
+    ProjectPaths::new(base, slug).project_root.exists()
+}
+
+/// Suggests a slug from the provided title without checking collision.
+pub fn slug_from_title(title: &str) -> String {
+    normalize_slug(title)
+}
+
+/// Generates a collision-safe slug, honoring an optional preferred slug.
+pub fn generate_project_slug(
+    base: &Base,
+    preferred_slug: Option<&str>,
+    title: &str,
+) -> WritingResult<String> {
+    ensure_project_tree(&base.user_layer_path)?;
+    let base_slug = preferred_slug
+        .and_then(|raw| {
+            let normalized = normalize_slug(raw);
+            (!normalized.is_empty()).then_some(normalized)
+        })
+        .unwrap_or_else(|| {
+            let normalized = slug_from_title(title);
+            if normalized.is_empty() {
+                DEFAULT_SLUG_PREFIX.to_string()
+            } else {
+                normalized
+            }
+        });
+
+    let mut candidate = base_slug.clone();
+    let mut counter = 2;
+    while project_exists(base, &candidate) {
+        candidate = format!("{base_slug}-{counter}");
+        counter += 1;
+    }
+    Ok(candidate)
+}
+
+fn normalize_slug(input: &str) -> String {
+    let mut slug = input
+        .trim()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    while slug.contains("--") {
+        slug = slug.replace("--", "-");
+    }
+    slug.trim_matches('-').to_string()
+}
+
 /// Convenience wrapper exposing important paths inside a project directory.
 #[derive(Debug, Clone)]
 pub struct ProjectPaths {
@@ -184,4 +257,74 @@ pub fn ensure_project_tree<P: AsRef<Path>>(user_layer_root: P) -> WritingResult<
     let projects_root = user_layer_root.as_ref().join(PROJECTS_DIR);
     fs::create_dir_all(&projects_root)?;
     Ok(())
+}
+
+/// Creates project directories plus starter files inside the user layer.
+pub fn scaffold_user_layer(base: &Base, slug: &str) -> WritingResult<ProjectPaths> {
+    ensure_project_tree(&base.user_layer_path)?;
+    if project_exists(base, slug) {
+        bail!(
+            "A writing project with slug '{}' already exists under this Base.",
+            slug
+        );
+    }
+    let paths = ProjectPaths::new(base, slug);
+    paths.ensure_dirs()?;
+    write_if_missing(&paths.main_tex_path, MAIN_TEX_TEMPLATE)?;
+    write_if_missing(&paths.bibliography_path, BIB_TEMPLATE)?;
+    let gitkeep_path = paths.sections_dir.join(GITKEEP_FILE);
+    write_if_missing(&gitkeep_path, SECTIONS_PLACEHOLDER)?;
+    Ok(paths)
+}
+
+fn write_if_missing(path: &Path, contents: &str) -> WritingResult<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    fs::write(path, contents)
+        .with_context(|| format!("Failed to write initial project file {}", path.display()))?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use tempfile::TempDir;
+    use uuid::Uuid;
+
+    fn test_base() -> (TempDir, Base) {
+        let tmp = tempfile::tempdir().unwrap();
+        let user = tmp.path().join("User").join("test-base");
+        let ai = tmp.path().join("AI").join("test-base");
+        fs::create_dir_all(&user).unwrap();
+        fs::create_dir_all(&ai).unwrap();
+        let base = Base {
+            id: Uuid::new_v4(),
+            name: "Test".into(),
+            slug: "test".into(),
+            user_layer_path: user,
+            ai_layer_path: ai,
+            created_at: Utc::now(),
+            last_active_at: None,
+        };
+        (tmp, base)
+    }
+
+    #[test]
+    fn slug_generation_handles_collisions() {
+        let (_tmp, base) = test_base();
+        let first = generate_project_slug(&base, None, "Survey on Alignment").unwrap();
+        assert_eq!(first, "survey-on-alignment");
+        scaffold_user_layer(&base, &first).unwrap();
+        let second = generate_project_slug(&base, None, "Survey on Alignment").unwrap();
+        assert_eq!(second, "survey-on-alignment-2");
+    }
+
+    #[test]
+    fn preferred_slug_is_honored_when_available() {
+        let (_tmp, base) = test_base();
+        let slug = generate_project_slug(&base, Some(" Custom Slug! "), "ignored").unwrap();
+        assert_eq!(slug, "custom-slug");
+    }
 }

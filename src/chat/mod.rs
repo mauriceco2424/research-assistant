@@ -1278,8 +1278,92 @@ impl IntentExecutor for ChatSession {
             "profile.show" => self.execute_profile_show_intent(payload),
             "profile.delete" => self.execute_profile_delete_intent(payload),
             "profile.remote_infer" => self.execute_remote_infer_intent(payload),
+            "writing.projects.list" => {
+                let manifests = crate::chat::commands::writing_projects::list_projects(base)?;
+                if manifests.is_empty() {
+                    Ok("No writing projects found for this Base.".to_string())
+                } else {
+                    let lines: Vec<String> = manifests
+                        .iter()
+                        .map(crate::chat::commands::writing_projects::summarize_manifest)
+                        .collect();
+                    Ok(format!("Writing projects:\n{}", lines.join("\n")))
+                }
+            }
+            "writing.project.show" => {
+                let slug = payload
+                    .parameters
+                    .get("project_slug")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("project_slug parameter missing"))?;
+                let manifest = crate::writing::project::WritingProjectManifest::load(base, slug)?;
+                Ok(crate::chat::commands::writing_projects::summarize_manifest(
+                    &manifest,
+                ))
+            }
+            "writing.project.start" => {
+                let title = payload
+                    .parameters
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("title parameter missing"))?;
+                let preferred_slug = payload
+                    .parameters
+                    .get("project_slug")
+                    .and_then(|v| v.as_str());
+                let result = crate::chat::commands::writing_start::start_project(
+                    &self.manager,
+                    base,
+                    title,
+                    preferred_slug,
+                )?;
+                let mut response = format!(
+                    "[OK] Writing project '{}' created as slug '{}'.",
+                    title, result.slug
+                );
+                if !result.interview.summary.is_empty() {
+                    response.push_str("\nInterview summary:\n");
+                    response.push_str(&result.interview.summary.join("\n"));
+                }
+                if !result.style_ingestion.records.is_empty() {
+                    response.push_str(&format!(
+                        "\nRecorded {} style model(s).",
+                        result.style_ingestion.records.len()
+                    ));
+                }
+                Ok(response)
+            }
+            "writing.project.archive" | "writing.project.update" => {
+                let slug = payload
+                    .parameters
+                    .get("project_slug")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("project_slug parameter missing"))?;
+                let status = if payload.action == "writing.project.archive" {
+                    Some(crate::writing::project::ProjectStatus::Archived)
+                } else {
+                    None
+                };
+                let description = payload
+                    .parameters
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let compiler = payload
+                    .parameters
+                    .get("default_compiler")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let manifest = crate::chat::commands::writing_projects::update_project(
+                    base, slug, status, description, compiler,
+                )?;
+                Ok(format!(
+                    "Writing project '{}' updated (status: {:?}).",
+                    manifest.slug, manifest.status
+                ))
+            }
             other if other.starts_with("writing.") => Ok(format!(
-                "Writing command '{other}' acknowledged (implementation pending)."
+                "Writing command '{other}' not yet implemented; try /writing start or /writing projects."
             )),
             other => bail!("Unknown intent action '{other}'"),
         }

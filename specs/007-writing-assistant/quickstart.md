@@ -8,6 +8,7 @@
 2. **Start a writing project**
    - In chat, run `/writing start "Survey on multimodal alignment"`.
    - Answer style interview prompts (tone, venue, evidence expectations).
+   - Slug is auto-generated and collision-safe; orchestration logs record `project_created`.
    - Verify `/User/<Base>/WritingProjects/survey-on-multimodal-alignment/` is created with `project.json`, `main.tex`, `sections/`, `.bib`, and AI-layer outline metadata.
 
 3. **Ingest style models**

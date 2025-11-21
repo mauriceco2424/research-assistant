@@ -39,16 +39,16 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Implement project slug generation + collision handling in `src/writing/project.rs`
-- [ ] T010 [P] [US1] Scaffold user-layer files (`main.tex`, `sections/`, `.bib`) in `src/writing/project.rs`
-- [ ] T011 [US1] Implement style interview prompt flow + WritingProfile updates in `src/writing/style.rs`
-- [ ] T012 [P] [US1] Implement local style model ingestion pipeline in `src/writing/style.rs`
-- [ ] T013 [US1] Detect remote style analysis needs, present consent manifest, and record approval tokens in `src/writing/style.rs`
-- [ ] T014 [P] [US1] Implement `/writing/projects` list/create endpoints in `src/chat/commands/writing_projects.rs`
-- [ ] T015 [US1] Implement `/writing/projects/{slug}` PATCH + Archive endpoints in `src/chat/commands/writing_projects.rs`
-- [ ] T016 [US1] Connect `/writing start` chat command to orchestrate slugging, interview, style models, and manifest scaffolding in `src/chat/commands/writing_start.rs`
-- [ ] T017 [US1] Emit `project_created` + `style_model_ingested` orchestration events with consent metadata in `src/orchestration/events.rs`
-- [ ] T018 [US1] Update quickstart docs with project creation flow in `specs/007-writing-assistant/quickstart.md`
+- [X] T009 [US1] Implement project slug generation + collision handling in `src/writing/project.rs`
+- [X] T010 [P] [US1] Scaffold user-layer files (`main.tex`, `sections/`, `.bib`) in `src/writing/project.rs`
+- [X] T011 [US1] Implement style interview prompt flow + WritingProfile updates in `src/writing/style.rs`
+- [X] T012 [P] [US1] Implement local style model ingestion pipeline in `src/writing/style.rs`
+- [X] T013 [US1] Detect remote style analysis needs, present consent manifest, and record approval tokens in `src/writing/style.rs`
+- [X] T014 [P] [US1] Implement `/writing/projects` list/create endpoints in `src/chat/commands/writing_projects.rs`
+- [X] T015 [US1] Implement `/writing/projects/{slug}` PATCH + Archive endpoints in `src/chat/commands/writing_projects.rs`
+- [X] T016 [US1] Connect `/writing start` chat command to orchestrate slugging, interview, style models, and manifest scaffolding in `src/chat/commands/writing_start.rs`
+- [X] T017 [US1] Emit `project_created` + `style_model_ingested` orchestration events with consent metadata in `src/orchestration/events.rs`
+- [X] T018 [US1] Update quickstart docs with project creation flow in `specs/007-writing-assistant/quickstart.md`
 
 **Checkpoint**: User Story 1 delivers MVP writing project lifecycle + style interview.
 

@@ -1,5 +1,7 @@
 pub mod profile;
 pub mod reports;
+pub mod writing_projects;
+pub mod writing_start;
 
 use uuid::Uuid;
 
