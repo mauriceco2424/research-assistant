@@ -8,7 +8,7 @@ description: "Tasks for Paper Discovery Consent Workflow"
 **Input**: Design documents from `/specs/009-paper-discovery/`  
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Not explicitly requested in spec; focus on implementation and observable outcomes.
+**Tests**: Not explicitly requested in spec; focus on implementation and observable outcomes. UI work is deferred; use backend/chat-response stubs instead.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -34,7 +34,7 @@ description: "Tasks for Paper Discovery Consent Workflow"
 - [X] T005 Add orchestration/consent event schema for discovery batches in src/models/orchestration/discovery.rs
 - [X] T006 Wire prompt manifest logging + endpoint capture for discovery/approval AI calls in src/services/ai/manifest.rs
 - [X] T007 Implement Base storage helpers for metadata/PDF paths and NEEDS_PDF flagging in src/services/storage/discovery.rs
-- [ ] T008 Create chat message templates for consent prompts and outcome summaries in src/ui/chat/templates/discovery.ts
+- [ ] T008 Add chat/text response helpers for consent prompts and outcome summaries in src/api/discovery.rs (backend-only)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel.
 
@@ -53,8 +53,8 @@ description: "Tasks for Paper Discovery Consent Workflow"
 - [X] T011 [US1] Persist request + candidates to AI-layer storage in src/services/discovery/store.rs
 - [X] T012 [US1] Implement POST /discovery/approvals with consent logging and batch creation in src/api/discovery.rs
 - [X] T013 [US1] Implement acquisition worker for approved batches (metadata/PDF, NEEDS_PDF on failure) in src/services/acquisition/discovery.rs
-- [ ] T014 [US1] Add chat UI flow for topic discovery request/approval prompts in src/ui/chat/discoveryTopic.tsx
-- [ ] T015 [US1] Add chat outcome summary (successes, NEEDS_PDF, skips/dupes) in src/ui/chat/discoveryStatus.tsx
+- [ ] T014 [US1] Add chat command/handler for topic discovery request + approval prompts (backend-only) in src/chat/mod.rs
+- [ ] T015 [US1] Add chat outcome summary rendering (successes, NEEDS_PDF, skips/dupes) in src/chat/mod.rs
 
 **Checkpoint**: Topic discovery MVP functional and testable independently.
 
@@ -69,7 +69,7 @@ description: "Tasks for Paper Discovery Consent Workflow"
 ### Implementation for User Story 2
 
 - [ ] T016 [US2] Extend discovery request handling for gap mode using KnowledgeProfile inputs in src/services/discovery/gap.rs
-- [ ] T017 [P] [US2] Render gap rationale and approval prompts in chat UI in src/ui/chat/discoveryGap.tsx
+- [ ] T017 [P] [US2] Render gap rationale and approval prompts via chat response builder in src/chat/mod.rs
 - [ ] T018 [US2] Persist gap provenance into StoredPaperRecord/provenance in src/services/discovery/store.rs
 
 **Checkpoint**: Gap-based discovery works independently and preserves provenance.
@@ -85,7 +85,7 @@ description: "Tasks for Paper Discovery Consent Workflow"
 ### Implementation for User Story 3
 
 - [ ] T019 [US3] Extend discovery request handling for session mode using recent session context in src/services/discovery/session.rs
-- [ ] T020 [P] [US3] Add chat UI for session follow-up prompts/approvals in src/ui/chat/discoverySession.tsx
+- [ ] T020 [P] [US3] Add chat response for session follow-up prompts/approvals in src/chat/mod.rs
 - [ ] T021 [US3] Record session reference in orchestration/provenance logs in src/models/orchestration/discovery.rs
 
 **Checkpoint**: Session follow-up discovery operates independently with correct provenance.
@@ -120,9 +120,9 @@ description: "Tasks for Paper Discovery Consent Workflow"
 
 ## Parallel Execution Examples
 
-- After Foundational: T010 (candidate generation) can run in parallel with T011 (storage) and T014 (UI) once their prerequisites are ready.
-- US2 UI (T017) can proceed in parallel with backend gap handler (T016) after foundational models.
-- US3 UI (T020) can proceed in parallel with session handler (T019) after foundational models.
+- After Foundational: T010 (candidate generation) can run in parallel with T011 (storage) and T014 (chat handler) once their prerequisites are ready.
+- US2 chat response (T017) can proceed in parallel with backend gap handler (T016) after foundational models.
+- US3 chat response (T020) can proceed in parallel with session handler (T019) after foundational models.
 
 ## Implementation Strategy
 
