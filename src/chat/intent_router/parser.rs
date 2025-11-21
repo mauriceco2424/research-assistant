@@ -89,10 +89,7 @@ impl IntentParser {
                     return None;
                 }
                 let mut parameters = Map::new();
-                parameters.insert(
-                    "title".into(),
-                    Value::String(strip_wrapping_tokens(title)),
-                );
+                parameters.insert("title".into(), Value::String(strip_wrapping_tokens(title)));
                 Some(build_writing_intent(
                     base,
                     chat_turn_id,
@@ -109,37 +106,109 @@ impl IntentParser {
                     let mut parameters = Map::new();
                     parameters.insert("project_slug".into(), Value::String(slug.clone()));
                     let next = tokens.next().map(|token| token.to_ascii_lowercase());
-                    let (action, safety, confidence) = match next.as_deref() {
+                    match next.as_deref() {
                         Some("style-interview") => {
-                            ("writing.project.style_interview", IntentSafetyClass::Harmless, 0.78)
+                            return Some(build_writing_intent(
+                                base,
+                                chat_turn_id,
+                                "writing.project.style_interview",
+                                segment,
+                                parameters,
+                                IntentSafetyClass::Harmless,
+                                0.78,
+                            ));
                         }
                         Some("outline") => {
-                            ("writing.project.outline", IntentSafetyClass::Harmless, 0.76)
+                            return Some(build_writing_intent(
+                                base,
+                                chat_turn_id,
+                                "writing.project.outline",
+                                segment,
+                                parameters,
+                                IntentSafetyClass::Harmless,
+                                0.76,
+                            ));
                         }
                         Some("drafts") => {
-                            ("writing.project.drafts", IntentSafetyClass::Harmless, 0.74)
+                            return Some(build_writing_intent(
+                                base,
+                                chat_turn_id,
+                                "writing.project.drafts",
+                                segment,
+                                parameters,
+                                IntentSafetyClass::Harmless,
+                                0.74,
+                            ));
+                        }
+                        Some("edit") => {
+                            if let Some(section_id) = tokens.next() {
+                                parameters.insert(
+                                    "section_id".into(),
+                                    Value::String(strip_identifier(section_id)),
+                                );
+                            }
+                            return Some(build_writing_intent(
+                                base,
+                                chat_turn_id,
+                                "writing.section.edit",
+                                segment,
+                                parameters,
+                                IntentSafetyClass::Destructive,
+                                0.72,
+                            ));
+                        }
+                        Some("undo") => {
+                            if let Some(event_id) = tokens.next() {
+                                parameters.insert(
+                                    "event_id".into(),
+                                    Value::String(strip_identifier(event_id)),
+                                );
+                            }
+                            return Some(build_writing_intent(
+                                base,
+                                chat_turn_id,
+                                "writing.undo",
+                                segment,
+                                parameters,
+                                IntentSafetyClass::Destructive,
+                                0.68,
+                            ));
                         }
                         Some("archive") => {
-                            ("writing.project.archive", IntentSafetyClass::Destructive, 0.8)
+                            return Some(build_writing_intent(
+                                base,
+                                chat_turn_id,
+                                "writing.project.archive",
+                                segment,
+                                parameters,
+                                IntentSafetyClass::Destructive,
+                                0.8,
+                            ));
                         }
                         Some(other) => {
-                            parameters.insert(
-                                "operation".into(),
-                                Value::String(other.to_string()),
-                            );
-                            ("writing.project.update", IntentSafetyClass::Destructive, 0.7)
+                            parameters.insert("operation".into(), Value::String(other.to_string()));
+                            return Some(build_writing_intent(
+                                base,
+                                chat_turn_id,
+                                "writing.project.update",
+                                segment,
+                                parameters,
+                                IntentSafetyClass::Destructive,
+                                0.7,
+                            ));
                         }
-                        None => ("writing.project.show", IntentSafetyClass::Harmless, 0.75),
-                    };
-                    Some(build_writing_intent(
-                        base,
-                        chat_turn_id,
-                        action,
-                        segment,
-                        parameters,
-                        safety,
-                        confidence,
-                    ))
+                        None => {
+                            return Some(build_writing_intent(
+                                base,
+                                chat_turn_id,
+                                "writing.project.show",
+                                segment,
+                                parameters,
+                                IntentSafetyClass::Harmless,
+                                0.75,
+                            ));
+                        }
+                    }
                 } else {
                     Some(build_writing_intent(
                         base,
@@ -191,10 +260,7 @@ impl IntentParser {
             "undo" => {
                 let mut parameters = Map::new();
                 if let Some(event_id) = tokens.next() {
-                    parameters.insert(
-                        "event_id".into(),
-                        Value::String(strip_identifier(event_id)),
-                    );
+                    parameters.insert("event_id".into(), Value::String(strip_identifier(event_id)));
                 }
                 Some(build_writing_intent(
                     base,
@@ -372,11 +438,7 @@ fn build_writing_intent(
     )
 }
 
-fn build_writing_help_intent(
-    base: &Base,
-    chat_turn_id: Uuid,
-    source: &str,
-) -> IntentPayload {
+fn build_writing_help_intent(base: &Base, chat_turn_id: Uuid, source: &str) -> IntentPayload {
     IntentPayload::new(
         WRITING_INTENT_VERSION,
         "writing.help",

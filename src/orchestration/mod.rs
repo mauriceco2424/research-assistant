@@ -476,6 +476,7 @@ pub enum MetricRecord {
     Reports(ReportMetricsRecord),
     Figure(FigureMetricsRecord),
     CategoryOperation(CategoryOperationMetricsRecord),
+    Writing(WritingMetricRecord),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -485,6 +486,27 @@ pub struct CategoryOperationMetricsRecord {
     pub success: bool,
     #[serde(default)]
     pub details: serde_json::Value,
+}
+
+/// Metrics for writing assistant flows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WritingMetricRecord {
+    pub kind: WritingMetricKind,
+    pub duration_ms: i64,
+    pub success: bool,
+    #[serde(default)]
+    pub details: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WritingMetricKind {
+    ProjectScaffold,
+    OutlineSync,
+    CitationResolution,
+    Compile,
+    Undo,
+    Consent,
 }
 
 /// Structured payload describing a category proposal batch or acceptance.

@@ -17,6 +17,11 @@ This document captures the high-level chat commands introduced by the Writing As
 - `/writing undo` reverts by orchestration event id using stored AI-layer checkpoints.
 - `/writing compile` runs the configured local compiler (preferring `tectonic`, falling back to `pdflatex`), streams logs, and stores PDFs + events (`compile_attempted`).
 
+## Telemetry & Compliance
+- Metrics are recorded to `ai_layer/<Base>/metrics.jsonl` for project scaffolding, outline syncs, citation verification, compile attempts, undo usage, and consent decisions (SC-001…SC-005).
+- Undo history keeps the last 20 checkpoints per project; older checkpoints are pruned automatically.
+- Consent tokens and prompt manifest paths are logged on writing events when remote work is approved.
+
 ## Notes
 - All commands are chat-first and respect local-first privacy guarantees.
 - Remote style analysis or citation lookups must surface prompt manifests + consent tokens before running.

@@ -1362,6 +1362,131 @@ impl IntentExecutor for ChatSession {
                     manifest.slug, manifest.status
                 ))
             }
+            "writing.project.outline" => {
+                let slug = payload
+                    .parameters
+                    .get("project_slug")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("project_slug parameter missing"))?;
+                let goal = payload.parameters.get("goal").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let references = payload
+                    .parameters
+                    .get("references")
+                    .and_then(|value| value.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect::<Vec<String>>()
+                    })
+                    .unwrap_or_default();
+                crate::chat::commands::writing_outline::propose_outline(
+                    &self.manager,
+                    base,
+                    slug,
+                    goal,
+                    references,
+                )
+            }
+            "writing.project.drafts" => {
+                let slug = payload
+                    .parameters
+                    .get("project_slug")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("project_slug parameter missing"))?;
+                let node_id = payload
+                    .parameters
+                    .get("node_id")
+                    .and_then(|v| v.as_str());
+                if node_id.is_none() {
+                    return Ok("Provide node_id to draft a section (e.g., /writing projects <slug> drafts {node_id}).".into());
+                }
+                let instructions = payload
+                    .parameters
+                    .get("instructions")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let cite_sources = payload
+                    .parameters
+                    .get("cite_sources")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect::<Vec<String>>()
+                    })
+                    .unwrap_or_default();
+                crate::chat::commands::writing_draft::generate_draft_for_node(
+                    &self.manager,
+                    base,
+                    slug,
+                    node_id.unwrap(),
+                    instructions,
+                    cite_sources,
+                )
+            }
+            "writing.section.edit" => {
+                let slug = payload
+                    .parameters
+                    .get("project_slug")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("project_slug parameter missing"))?;
+                let section_id = payload
+                    .parameters
+                    .get("section_id")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("section_id parameter missing"))?;
+                let command_text = payload
+                    .target
+                    .get("source")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("inline edit");
+                let replacement = payload
+                    .parameters
+                    .get("payload")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                crate::chat::commands::writing_edit::handle_inline_edit(
+                    &self.manager,
+                    base,
+                    crate::chat::commands::writing_edit::InlineEditRequest {
+                        project_slug: slug.to_string(),
+                        section_id: section_id.to_string(),
+                        command: command_text.to_string(),
+                        replacement,
+                    },
+                )
+            }
+            "writing.undo" => {
+                let slug = payload
+                    .parameters
+                    .get("project_slug")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("project_slug parameter missing for undo"))?;
+                let event_id = payload
+                    .parameters
+                    .get("event_id")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("event_id parameter missing for undo"))?;
+                crate::chat::commands::writing_undo::apply_undo(base, slug, event_id)
+            }
+            "writing.compile" => {
+                let slug = payload
+                    .parameters
+                    .get("project_slug")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("project_slug parameter missing for compile"))?;
+                let compiler = payload
+                    .parameters
+                    .get("compiler")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let clean = payload
+                    .parameters
+                    .get("clean")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                crate::chat::commands::writing_compile::run_compile(base, slug, compiler, clean)
+            }
             other if other.starts_with("writing.") => Ok(format!(
                 "Writing command '{other}' not yet implemented; try /writing start or /writing projects."
             )),

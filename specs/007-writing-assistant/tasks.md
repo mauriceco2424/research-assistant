@@ -62,17 +62,17 @@
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Implement outline schema management + persistence in `src/writing/outline.rs`
-- [ ] T020 [P] [US2] Build outline proposal generator referencing Paper Base summaries in `src/writing/outline.rs`
-- [ ] T021 [US2] Implement `/writing/projects/{slug}/outline/proposals` + `/outline/{nodeId}/status` endpoints in `src/chat/commands/writing_outline.rs`
-- [ ] T022 [US2] Persist outline acceptance checkpoints for undo in `src/writing/outline.rs`
-- [ ] T023 [US2] Implement draft generator that writes section `.tex` files + AI metadata in `src/writing/drafting.rs`
-- [ ] T024 [US2] Implement `/writing/projects/{slug}/drafts/{nodeId}` endpoint in `src/chat/commands/writing_draft.rs`
-- [ ] T025 [US2] Emit `outline_created`/`outline_modified` events when proposals are generated or accepted in `src/orchestration/events.rs`
-- [ ] T026 [US2] Add citation capture + `draft_generated` event logging in `src/writing/citations.rs`
-- [ ] T027 [US2] Update `.bib` sync logic for accepted outline nodes in `src/writing/citations.rs`
-- [ ] T028 [US2] Add `.bib` drift detection + user warnings when manual edits diverge from Paper Base truth in `src/writing/citations.rs`
-- [ ] T029 [US2] Extend quickstart with outline + draft instructions in `specs/007-writing-assistant/quickstart.md`
+ - [X] T019 [US2] Implement outline schema management + persistence in `src/writing/outline.rs`
+ - [X] T020 [P] [US2] Build outline proposal generator referencing Paper Base summaries in `src/writing/outline.rs`
+ - [X] T021 [US2] Implement `/writing/projects/{slug}/outline/proposals` + `/outline/{nodeId}/status` endpoints in `src/chat/commands/writing_outline.rs`
+ - [X] T022 [US2] Persist outline acceptance checkpoints for undo in `src/writing/outline.rs`
+ - [X] T023 [US2] Implement draft generator that writes section `.tex` files + AI metadata in `src/writing/drafting.rs`
+ - [X] T024 [US2] Implement `/writing/projects/{slug}/drafts/{nodeId}` endpoint in `src/chat/commands/writing_draft.rs`
+ - [X] T025 [US2] Emit `outline_created`/`outline_modified` events when proposals are generated or accepted in `src/orchestration/events.rs`
+ - [X] T026 [US2] Add citation capture + `draft_generated` event logging in `src/writing/citations.rs`
+ - [X] T027 [US2] Update `.bib` sync logic for accepted outline nodes in `src/writing/citations.rs`
+ - [X] T028 [US2] Add `.bib` drift detection + user warnings when manual edits diverge from Paper Base truth in `src/writing/citations.rs`
+ - [X] T029 [US2] Extend quickstart with outline + draft instructions in `specs/007-writing-assistant/quickstart.md`
 
 **Checkpoint**: Outline/draft loop operational and testable independently.
 
@@ -86,13 +86,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Implement inline edit command parser in `src/chat/commands/writing_edit.rs`
-- [ ] T031 [P] [US3] Apply structured edits + diff snippets using `latexindent` helpers in `src/writing/drafting.rs`
-- [ ] T032 [US3] Implement citation verification + `UNVERIFIED` tagging and emit `citation_flagged` events in `src/writing/citations.rs`
-- [ ] T033 [US3] Persist inline-edit undo checkpoints and diff hunks in `src/writing/undo.rs`
-- [ ] T034 [US3] Implement `/writing/projects/{slug}/edits` endpoint wiring parser + drafting logic in `src/chat/commands/writing_edit.rs`
-- [ ] T035 [US3] Implement `/writing/projects/{slug}/undo` endpoint and `/writing undo` chat command using stored checkpoints in `src/chat/commands/writing_undo.rs`
-- [ ] T036 [US3] Document inline edit workflow + undo instructions in `specs/007-writing-assistant/quickstart.md`
+ - [X] T030 [US3] Implement inline edit command parser in `src/chat/commands/writing_edit.rs`
+ - [X] T031 [P] [US3] Apply structured edits + diff snippets using `latexindent` helpers in `src/writing/drafting.rs`
+ - [X] T032 [US3] Implement citation verification + `UNVERIFIED` tagging and emit `citation_flagged` events in `src/writing/citations.rs`
+ - [X] T033 [US3] Persist inline-edit undo checkpoints and diff hunks in `src/writing/undo.rs`
+ - [X] T034 [US3] Implement `/writing/projects/{slug}/edits` endpoint wiring parser + drafting logic in `src/chat/commands/writing_edit.rs`
+ - [X] T035 [US3] Implement `/writing/projects/{slug}/undo` endpoint and `/writing undo` chat command using stored checkpoints in `src/chat/commands/writing_undo.rs`
+ - [X] T036 [US3] Document inline edit workflow + undo instructions in `specs/007-writing-assistant/quickstart.md`
 
 **Checkpoint**: Inline editing & citation injection usable without compile dependency.
 
@@ -106,14 +106,14 @@
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Implement compile executor invoking `tectonic`/`pdflatex` in `src/writing/compile.rs`
-- [ ] T038 [P] [US4] Parse compiler logs -> chat-friendly messages in `src/writing/compile.rs`
-- [ ] T039 [US4] Store BuildSession metadata + artifacts under `/builds/` via `src/writing/compile.rs`
-- [ ] T040 [US4] Implement `/writing/projects/{slug}/builds` POST/GET endpoints in `src/chat/commands/writing_compile.rs`
-- [ ] T041 [US4] Wire chat command `/writing compile` + status streaming in `src/chat/commands/writing_compile.rs`
-- [ ] T042 [US4] Add compile pre-check to block builds when no drafts exist and return guidance in `src/writing/compile.rs`
-- [ ] T043 [US4] Log `compile_attempted` events with consent status in `src/orchestration/events.rs`
-- [ ] T044 [US4] Extend quickstart compile section with troubleshooting tips in `specs/007-writing-assistant/quickstart.md`
+ - [X] T037 [US4] Implement compile executor invoking `tectonic`/`pdflatex` in `src/writing/compile.rs`
+ - [X] T038 [P] [US4] Parse compiler logs -> chat-friendly messages in `src/writing/compile.rs`
+ - [X] T039 [US4] Store BuildSession metadata + artifacts under `/builds/` via `src/writing/compile.rs`
+ - [X] T040 [US4] Implement `/writing/projects/{slug}/builds` POST/GET endpoints in `src/chat/commands/writing_compile.rs`
+ - [X] T041 [US4] Wire chat command `/writing compile` + status streaming in `src/chat/commands/writing_compile.rs`
+ - [X] T042 [US4] Add compile pre-check to block builds when no drafts exist and return guidance in `src/writing/compile.rs`
+ - [X] T043 [US4] Log `compile_attempted` events with consent status in `src/orchestration/events.rs`
+ - [X] T044 [US4] Extend quickstart compile section with troubleshooting tips in `specs/007-writing-assistant/quickstart.md`
 
 **Checkpoint**: PDF compilation + feedback complete; user can preview drafts locally.
 
@@ -123,16 +123,26 @@
 
 **Purpose**: Improvements affecting multiple user stories, metrics, and compliance
 
-- [ ] T045 [P] Review `specs/007-writing-assistant/contracts/writing-assistant.openapi.yaml` vs implementation and sync any deviations
-- [ ] T046 Instrument project scaffolding timing to validate SC-001 in `src/writing/project.rs`
-- [ ] T047 Instrument outline-to-`.tex` sync rate to validate SC-002 in `src/writing/outline.rs`
-- [ ] T048 Instrument citation resolution metrics (auto vs UNVERIFIED) to validate SC-003 in `src/writing/citations.rs`
-- [ ] T049 Instrument compile duration + log completeness to validate SC-004 in `src/writing/compile.rs`
-- [ ] T050 Instrument undo latency + ensure last-20-event retention to validate SC-005 in `src/writing/undo.rs`
-- [ ] T051 Harden error handling + consent manifest logging in `src/orchestration/events.rs`
-- [ ] T052 [P] Add telemetry hooks for undo usage + consent decisions in `src/orchestration/events.rs`
-- [ ] T053 Update documentation (`docs/writing-assistant.md`, quickstart) with final screenshots/log samples
-- [ ] T054 Run end-to-end quickstart flow and note follow-ups in `specs/007-writing-assistant/quickstart.md`
+- [X] T045 [P] Review `specs/007-writing-assistant/contracts/writing-assistant.openapi.yaml` vs implementation and sync any deviations
+- [X] T046 Instrument project scaffolding timing to validate SC-001 in `src/writing/project.rs`
+- [X] T047 Instrument outline-to-`.tex` sync rate to validate SC-002 in `src/writing/outline.rs`
+- [X] T048 Instrument citation resolution metrics (auto vs UNVERIFIED) to validate SC-003 in `src/writing/citations.rs`
+- [X] T049 Instrument compile duration + log completeness to validate SC-004 in `src/writing/compile.rs`
+- [X] T050 Instrument undo latency + ensure last-20-event retention to validate SC-005 in `src/writing/undo.rs`
+- [X] T051 Harden error handling + consent manifest logging in `src/orchestration/events.rs`
+- [X] T052 [P] Add telemetry hooks for undo usage + consent decisions in `src/orchestration/events.rs`
+- [X] T053 Update documentation (`docs/writing-assistant.md`, quickstart) with final screenshots/log samples
+- [X] T054 Run end-to-end quickstart flow and note follow-ups in `specs/007-writing-assistant/quickstart.md`
+ - [X] T045 [P] Review `specs/007-writing-assistant/contracts/writing-assistant.openapi.yaml` vs implementation and sync any deviations
+ - [X] T046 Instrument project scaffolding timing to validate SC-001 in `src/writing/project.rs`
+ - [X] T047 Instrument outline-to-`.tex` sync rate to validate SC-002 in `src/writing/outline.rs`
+ - [X] T048 Instrument citation resolution metrics (auto vs UNVERIFIED) to validate SC-003 in `src/writing/citations.rs`
+ - [X] T049 Instrument compile duration + log completeness to validate SC-004 in `src/writing/compile.rs`
+ - [X] T050 Instrument undo latency + ensure last-20-event retention to validate SC-005 in `src/writing/undo.rs`
+ - [X] T051 Harden error handling + consent manifest logging in `src/orchestration/events.rs`
+ - [X] T052 [P] Add telemetry hooks for undo usage + consent decisions in `src/orchestration/events.rs`
+ - [X] T053 Update documentation (`docs/writing-assistant.md`, quickstart) with final screenshots/log samples
+ - [X] T054 Run end-to-end quickstart flow and note follow-ups in `specs/007-writing-assistant/quickstart.md`
 
 ---
 

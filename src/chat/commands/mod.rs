@@ -1,7 +1,12 @@
 pub mod profile;
 pub mod reports;
+pub mod writing_compile;
+pub mod writing_draft;
+pub mod writing_edit;
+pub mod writing_outline;
 pub mod writing_projects;
 pub mod writing_start;
+pub mod writing_undo;
 
 use uuid::Uuid;
 

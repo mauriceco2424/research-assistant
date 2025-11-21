@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Writing Assistant API
-  version: 0.1.0
+  version: 0.2.0
   description: REST contracts consumed by chat intent router to orchestrate Writing Assistant operations.
 servers:
   - url: tauri://localhost
@@ -457,6 +457,7 @@ components:
           type: string
         status:
           type: string
+          enum: [success, failure, skipped]
         compiler:
           type: string
         startedAt:
@@ -469,5 +470,7 @@ components:
           type: string
         pdfPath:
           type: string
+          nullable: true
         errorSummary:
           type: string
+          description: Present when compilation fails or is skipped.

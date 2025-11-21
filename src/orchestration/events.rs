@@ -6,7 +6,10 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{EventType, OrchestrationEvent, OrchestrationLog};
+use super::{
+    EventType, MetricRecord, OrchestrationEvent, OrchestrationLog, WritingMetricKind,
+    WritingMetricRecord,
+};
 
 /// Structured payload logged for every profile mutation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -250,6 +253,8 @@ fn log_writing_event(
     event_type: EventType,
     details: WritingEventDetails,
 ) -> Result<Uuid> {
+    let log = OrchestrationLog::for_base(base);
+    maybe_record_writing_metric(&log, event_type.clone(), &details);
     let event = OrchestrationEvent {
         event_id: Uuid::new_v4(),
         base_id: base.id,
@@ -257,7 +262,39 @@ fn log_writing_event(
         timestamp: Utc::now(),
         details: serde_json::to_value(details)?,
     };
-    let log = OrchestrationLog::for_base(base);
     log.append_event(&event)?;
     Ok(event.event_id)
+}
+
+fn maybe_record_writing_metric(
+    log: &OrchestrationLog,
+    event_type: EventType,
+    details: &WritingEventDetails,
+) {
+    // Consent tracking
+    if let Some(token) = &details.consent_token {
+        let _ = log.record_metric(&MetricRecord::Writing(WritingMetricRecord {
+            kind: WritingMetricKind::Consent,
+            duration_ms: 0,
+            success: true,
+            details: serde_json::json!({
+                "event": format!("{:?}", event_type),
+                "consent_token": token,
+                "prompt_manifest": details.prompt_manifest_path,
+            }),
+        }));
+    }
+
+    // Undo usage tracking
+    if matches!(event_type, EventType::WritingUndoApplied) {
+        let _ = log.record_metric(&MetricRecord::Writing(WritingMetricRecord {
+            kind: WritingMetricKind::Undo,
+            duration_ms: 0,
+            success: true,
+            details: serde_json::json!({
+                "files": details.files_touched,
+                "checkpoint": details.undo_checkpoint_path,
+            }),
+        }));
+    }
 }

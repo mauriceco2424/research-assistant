@@ -4,9 +4,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json;
 use uuid::Uuid;
 
 use crate::bases::{Base, CompilerBinary};
+use crate::orchestration::{
+    MetricRecord, OrchestrationLog, WritingMetricKind, WritingMetricRecord,
+};
 
 use super::WritingResult;
 
@@ -261,6 +265,7 @@ pub fn ensure_project_tree<P: AsRef<Path>>(user_layer_root: P) -> WritingResult<
 
 /// Creates project directories plus starter files inside the user layer.
 pub fn scaffold_user_layer(base: &Base, slug: &str) -> WritingResult<ProjectPaths> {
+    let started = std::time::Instant::now();
     ensure_project_tree(&base.user_layer_path)?;
     if project_exists(base, slug) {
         bail!(
@@ -274,6 +279,7 @@ pub fn scaffold_user_layer(base: &Base, slug: &str) -> WritingResult<ProjectPath
     write_if_missing(&paths.bibliography_path, BIB_TEMPLATE)?;
     let gitkeep_path = paths.sections_dir.join(GITKEEP_FILE);
     write_if_missing(&gitkeep_path, SECTIONS_PLACEHOLDER)?;
+    record_project_metric(base, started.elapsed(), true);
     Ok(paths)
 }
 
@@ -284,6 +290,16 @@ fn write_if_missing(path: &Path, contents: &str) -> WritingResult<()> {
     fs::write(path, contents)
         .with_context(|| format!("Failed to write initial project file {}", path.display()))?;
     Ok(())
+}
+
+fn record_project_metric(base: &Base, duration: std::time::Duration, success: bool) {
+    let log = OrchestrationLog::for_base(base);
+    let _ = log.record_metric(&MetricRecord::Writing(WritingMetricRecord {
+        kind: WritingMetricKind::ProjectScaffold,
+        duration_ms: duration.as_millis() as i64,
+        success,
+        details: serde_json::json!({ "scope": "scaffold_user_layer" }),
+    }));
 }
 
 #[cfg(test)]
